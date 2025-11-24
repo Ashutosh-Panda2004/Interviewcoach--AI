@@ -1,0 +1,7 @@
+{
+  "name": "InterviewCoach-AI",
+  "description": "An interactive voice-first interview preparation agent that conducts mock interviews, adapts to your responses, and provides detailed analytics and feedback.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
