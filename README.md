@@ -60,7 +60,7 @@ InterviewCoach AI transforms the way candidates prepare for technical and behavi
 
 1.  **Clone the Repository**
     ```bash
-    git clone https://github.com/yourusername/interview-coach-ai.git
+    git clone https://github.com/yourusername/Interviewcoach--AI.git
     cd interview-coach-ai
     ```
 
