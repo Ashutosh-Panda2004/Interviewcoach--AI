@@ -1,7 +1,3 @@
-
-
-
-
 // utils/prompts.ts
 // -----------------------------------------------------------------------------
 // ENTERPRISE PROMPT ENGINE v4.3 (JSON-STRICT, TYPE-ALIGNED, FALLBACK-READY)
@@ -33,7 +29,9 @@ const DEVELOPER_RESUME_LOCAL_PATH = '/mnt/data/Screenshot 2025-11-22 at 7.09.33 
 
 const sanitize = (s?: string): string => {
   if (!s) return '';
-  return s.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+  // Preserve newlines (\n, \r) and tabs (\t) for readability.
+  // Remove other control characters (0x00-0x08, 0x0B-0x0C, 0x0E-0x1F, 0x7F-0x9F)
+  return s.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '').trim();
 };
 
 const nowIso = () => new Date().toISOString();
@@ -83,16 +81,31 @@ const buildIdentity = (role: string, language: string) => {
   };
 };
 
-const buildToon = (durationMinutes: number | undefined, focusArea?: string) => {
+const buildToon = (durationMinutes: number | undefined, focusArea?: string, hasResume: boolean = false) => {
   const duration = typeof durationMinutes === 'number' ? durationMinutes : 20;
   const introTime = duration <= 10 ? 1 : 2;
   const deepDiveMinutes = Math.max( Math.round(duration * 0.55), 6 );
+
+  // Adjust orchestration phases based on resume presence
+  const phases = hasResume ? [
+      `Greeting & Resume Verification (${introTime}m)`,
+      `Resume Deep Dive (Projects & Experience) (${deepDiveMinutes}m)`,
+      `Technical validation based on resume claims`,
+      "Challenge / Coding / System Design phase",
+      "Wrap-up & candidate questions"
+  ] : [
+      `Greeting (${introTime}m)`,
+      `Experience & Resume Scan (Fast)`,
+      `Core Focus / Deep Dive (${deepDiveMinutes}m)`,
+      "Challenge / Coding / System Design phase",
+      "Wrap-up & candidate questions"
+  ];
 
   return {
     TOON: {
       TASK: {
         primary: "Conduct a realistic, psychologically-attuned mock interview.",
-        secondary: `Focus on: ${focusArea || 'role-relevant topics'}.`,
+        secondary: hasResume ? `Focus on verifying and probing the uploaded resume content, then ${focusArea || 'role-relevant topics'}.` : `Focus on: ${focusArea || 'role-relevant topics'}.`,
         tertiary: "Evaluate reasoning, communication, technical skill, and fit."
       },
       OUTPUT: {
@@ -110,13 +123,7 @@ const buildToon = (durationMinutes: number | undefined, focusArea?: string) => {
         }
       },
       ORCHESTRATION: {
-        phases: [
-          `Greeting (${introTime}m)`,
-          `Experience & Resume Scan (Fast)`,
-          `Core Focus / Deep Dive (${deepDiveMinutes}m)`,
-          "Challenge / Coding / System Design phase",
-          "Wrap-up & candidate questions"
-        ],
+        phases: phases,
         timeManagement: `Manage the ${duration} minute session; if <20% time remains, prioritize wrap-up.`
       },
       NUANCE: {
@@ -219,7 +226,8 @@ const buildContext = (settings: InterviewSettingsFull, resumeText?: string) => {
       focusArea: settings.focusArea || null,
       resume: resumeProvided ? {
         status: "PROVIDED",
-        excerpt: sanitize(resumeText!).slice(0, 4000),
+        // Increased limit and used robust sanitizer to keep formatting
+        excerpt: sanitize(resumeText!).slice(0, 10000),
         auditInstruction: "FORENSIC MODE: The user uploaded a resume. Cross-reference all answers against it. Probe specific projects listed in the text. If they claim a skill, verify it."
       } : {
         status: "NOT_PROVIDED",
@@ -312,9 +320,13 @@ export const constructInterviewSystemPrompt = (
   isReconnection: boolean = false,
   contextHistory: string = ''
 ): string => {
+  // Check for resume presence to drive logic
+  const hasResume = !!(resumeText && resumeText.length > 50);
+
   // Create all modules
   const identity = buildIdentity(settings.role || 'Software Engineer', settings.language || 'en-US');
-  const toon = buildToon(settings.duration || settings.durationMinutes || 20, settings.focusArea);
+  // Pass hasResume to buildToon to adjust phases
+  const toon = buildToon(settings.duration || settings.durationMinutes || 20, settings.focusArea, hasResume);
   const behavior = buildBehavioralMatrix(settings);
   const context = buildContext(settings, resumeText);
   const safety = buildSafety();
@@ -336,6 +348,11 @@ export const constructInterviewSystemPrompt = (
       }
   } : { DEMO_MODE: { active: false } };
 
+  // Select Greeting based on Context
+  const standardGreeting = `You must start the session. Say: "Hi, I'm ${AGENT_NAME}. I see you're applying for the ${settings.role || 'Software Engineer'} role. Ready to begin?" (Customize this greeting based on Personality settings).`;
+  
+  const resumeGreeting = `You must start the session. Say: "Hi, I'm ${AGENT_NAME}. I've reviewed your resume for the ${settings.role || 'Software Engineer'} role. Ready to dive into your background?" (Customize tone based on Personality). Then, IMMEDIATELY ask a specific question about a project, role, or skill mentioned in the provided resume text to start the deep dive.`;
+
   // Assemble final system object
   const systemObject = {
     SYSTEM: {
@@ -353,7 +370,7 @@ export const constructInterviewSystemPrompt = (
     INSTRUCTIONS: {
       mandatoryStartup: settings.isDemoMode 
           ? `DEMO MODE STARTUP: Skip standard greetings. Immediately generate a challenging, context-aware interview question for a ${settings.experienceLevel || 'Senior'} ${settings.role || 'Candidate'}. Do not say "Let's start". Just ask the question directly to showcase dynamic generation.`
-          : `You must start the session. Say: "Hi, I'm ${AGENT_NAME}. I see you're applying for the ${settings.role || 'Software Engineer'} role. Ready to begin?" (Customize this greeting based on Personality settings).`,
+          : hasResume ? resumeGreeting : standardGreeting,
       hardRules: [
         "Ask ONE question at a time.",
         "Never hallucinate unseen code or resume facts.",
@@ -587,13 +604,11 @@ export const constructCodingProblemPrompt = (
         javascript: "// JS function signature + placeholder",
         python: "# Python function signature + placeholder"
       },
-      // STRICT FIX: Match TestCase interface in types.ts (Single array, visible flag)
       testCases: [
         { id: "t1", input: "literal or JSON", expectedOutput: "literal or JSON", visible: true },
         { id: "t2", input: "literal or JSON", expectedOutput: "literal or JSON", visible: true },
         { id: "h1", input: "edge case", expectedOutput: "expected", visible: false }
       ],
-      // STRICT FIX: Match string[] type in types.ts
       hints: ["string (Hint 1)", "string (Hint 2)"],
       expectedComplexity: "Time: O(...), Space: O(...)",
       validationPlan: "Explain how visible + hidden tests validate correctness, performance, edge cases.",
@@ -640,7 +655,3 @@ export const constructCodingProblemPrompt = (
 // -----------------------------------------------------------------------------
 
 export const DEVELOPER_SAMPLE_RESUME_PATH = DEVELOPER_RESUME_LOCAL_PATH;
-
-// -----------------------------------------------------------------------------
-// End of file
-// -----------------------------------------------------------------------------
