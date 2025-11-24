@@ -1,6 +1,7 @@
 
 
 
+
 // utils/prompts.ts
 // -----------------------------------------------------------------------------
 // ENTERPRISE PROMPT ENGINE v4.3 (JSON-STRICT, TYPE-ALIGNED, FALLBACK-READY)
@@ -10,7 +11,7 @@
 // -----------------------------------------------------------------------------
 
 import { InterviewSettings } from '../types';
-import { DEMO_SCRIPT_QUESTIONS, DEMO_INSTRUCTION } from './demoScript';
+import { DEMO_DYNAMIC_INSTRUCTION } from './demoScript';
 
 export type InterviewSettingsFull = InterviewSettings & {
   durationMinutes?: number;
@@ -331,8 +332,7 @@ export const constructInterviewSystemPrompt = (
   const demoConfig = settings.isDemoMode ? {
       DEMO_MODE: {
           active: true,
-          script: DEMO_SCRIPT_QUESTIONS,
-          instruction: DEMO_INSTRUCTION
+          instruction: DEMO_DYNAMIC_INSTRUCTION
       }
   } : { DEMO_MODE: { active: false } };
 
@@ -352,7 +352,7 @@ export const constructInterviewSystemPrompt = (
     },
     INSTRUCTIONS: {
       mandatoryStartup: settings.isDemoMode 
-          ? `DEMO MODE STARTUP: Ignore standard greeting. Say exactly: "${DEMO_SCRIPT_QUESTIONS[0]}"`
+          ? `DEMO MODE STARTUP: Skip standard greetings. Immediately generate a challenging, context-aware interview question for a ${settings.experienceLevel || 'Senior'} ${settings.role || 'Candidate'}. Do not say "Let's start". Just ask the question directly to showcase dynamic generation.`
           : `You must start the session. Say: "Hi, I'm ${AGENT_NAME}. I see you're applying for the ${settings.role || 'Software Engineer'} role. Ready to begin?" (Customize this greeting based on Personality settings).`,
       hardRules: [
         "Ask ONE question at a time.",
