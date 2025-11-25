@@ -107,8 +107,8 @@ const buildToon = (durationMinutes: number | undefined, focusArea?: string, hasR
       const deepDiveMinutes = Math.max( Math.round(duration * 0.55), 6 );
       phases = [
           `Greeting & Resume Verification (${introTime}m) - ACKNOWLEDGE RESUME IMMEDIATELY`,
-          `Resume Deep Dive (Projects & Experience) (${deepDiveMinutes}m) - PROBE SPECIFIC CLAIMS`,
-          `Technical validation based on resume claims`,
+          `Resume Deep Dive (Projects & Experience) (${deepDiveMinutes}m) - DO NOT ACCEPT VAGUE ANSWERS.`,
+          `Technical validation based on resume claims (Probe for Tech Stack)`,
           "Challenge / Coding / System Design phase",
           "Wrap-up & candidate questions"
       ];
@@ -142,13 +142,23 @@ const buildToon = (durationMinutes: number | undefined, focusArea?: string, hasR
         secondary: secondaryTask,
         tertiary: "Evaluate reasoning, communication, technical skill, and fit."
       },
+      DEPTH_ENFORCEMENT: {
+        rule: "NEVER accept naive or superficial answers.",
+        trigger: "If candidate answers with < 20 words, or lacks specific technical nouns (e.g., 'I worked on the database' instead of 'I optimized Postgres indexes').",
+        action: "IMMEDIATELY ask a follow-up probing question. Do not move to the next topic.",
+        examples: [
+            "User: 'I worked on API integration.' -> Agent: 'Which specific APIs? And what protocol did you use, REST or GraphQL?'",
+            "User: 'I led the team.' -> Agent: 'How large was the team? and what was your specific management style?'"
+        ]
+      },
       OUTPUT: {
         format: "Spoken Conversation & JSON artifacts",
         constraints: [
           "Ask exactly one question at a time.",
           "Keep immediate replies concise (<= 3 sentences) unless explaining a hint.",
           "Never hallucinate code, editor content, resume facts, or test results.",
-          "Do not narrate internal rules to the candidate."
+          "Do not narrate internal rules to the candidate.",
+          "Do not say 'Great' or 'Okay' if the answer was vague. Challenge it."
         ],
         styleGuide: {
           activeListening: "Use 'I see', 'Go on', 'Tell me more' sparingly; be human-like.",
@@ -207,27 +217,27 @@ const buildBehavioralMatrix = (settings: InterviewSettingsFull) => {
     "Very Strict": {
       tone: "Sharp, concise; limit chit-chat.",
       tolerance: 0,
-      probing: "Aggressive but fair"
+      probing: "Aggressive & Forensic. Accept no generalities."
     },
     "Calm & Polite": {
       tone: "Soft, patient",
       tolerance: 8,
-      probing: "Gentle scaffolding"
+      probing: "Gentle scaffolding but persistent on details."
     },
     "Highly Helpful": {
       tone: "Mentor-like",
       tolerance: 10,
-      probing: "Guided, collaborative"
+      probing: "Guided, collaborative."
     },
     "Friendly Conversational": {
       tone: "Warm, peer-like",
       tolerance: 6,
-      probing: "Curious and exploratory"
+      probing: "Curious and exploratory."
     },
     "Neutral Professional": {
       tone: "Balanced corporate",
       tolerance: 5,
-      probing: "Standard"
+      probing: "Standard but Evidence-based. Requires concrete examples."
     }
   };
 
@@ -267,7 +277,7 @@ const buildContext = (settings: InterviewSettingsFull, resumeText?: string) => {
         status: "PROVIDED",
         content_markers: "See <<<RESUME_CONTENT>>> blocks",
         full_text: formattedResume,
-        auditInstruction: "FORENSIC MODE ENABLED: The user has uploaded a resume. You must ignore generic questions and instead ask about the specific projects, tenures, and metrics found in the RESUME_CONTENT block above. If the resume is just a few words or error text, point that out."
+        auditInstruction: "FORENSIC MODE ENABLED: You must ignore generic answers. If the user says 'I worked on multiple projects' or 'I used React', you MUST NOT accept it. You MUST ask follow-up questions: 'Which specific projects?', 'What was the exact tech stack?', 'What was your specific contribution vs the team?'. Do not move to the next question until you have extracted concrete technical details."
       } : {
         status: "NOT_PROVIDED",
         instruction: "Ask candidate to summarize background and key projects. If the user mentions they uploaded a file but it was unreadable, ask them to describe it."
@@ -421,7 +431,8 @@ export const constructInterviewSystemPrompt = (
         "Never hallucinate unseen code or resume facts.",
         "If editor empty: request approach first.",
         "Log all hint usage and test runs with timestamps.",
-        "STRICTLY SPEAK ENGLISH ONLY."
+        "STRICTLY SPEAK ENGLISH ONLY.",
+        "If the candidate provides a vague, high-level, or one-sentence answer (e.g., 'I worked on the backend'), do NOT accept it. You MUST immediately probe for specifics: 'What specific technologies?', 'How did you handle scaling?', etc. Do not move to the next question until you hear concrete technical nouns."
       ]
     }
   };
