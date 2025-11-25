@@ -11,8 +11,15 @@ interface CodeWorkspaceProps {
 }
 
 const CodeWorkspace: React.FC<CodeWorkspaceProps> = ({ problem, isLastProblem, onCodeRun, onComplete }) => {
-  const [code, setCode] = useState(problem.initialCode['javascript'] || '');
+  // CRASH FIX: Safe access to initialCode with fallback
+  const getInitialCode = (prob: CodingProblem, lang: string) => {
+      if (!prob || !prob.initialCode) return '// Write your solution here';
+      return prob.initialCode[lang] || prob.initialCode['javascript'] || prob.initialCode['python'] || '// No starter code provided';
+  };
+
   const [language, setLanguage] = useState('javascript');
+  const [code, setCode] = useState(getInitialCode(problem, 'javascript'));
+  
   const [isRunning, setIsRunning] = useState(false);
   const [testResults, setTestResults] = useState<TestResult[] | null>(null);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
@@ -23,9 +30,8 @@ const CodeWorkspace: React.FC<CodeWorkspaceProps> = ({ problem, isLastProblem, o
 
   // Initialize or Reset when problem changes
   useEffect(() => {
-      // Safe fallback if language doesn't exist
-      const initial = problem.initialCode[language] || problem.initialCode[Object.keys(problem.initialCode)[0]] || '';
-      setCode(initial);
+      const newCode = getInitialCode(problem, language);
+      setCode(newCode);
       setTestResults(null);
       setConsoleOutput([]);
       setActiveTab('problem'); 
@@ -40,19 +46,16 @@ const CodeWorkspace: React.FC<CodeWorkspaceProps> = ({ problem, isLastProblem, o
     await new Promise(r => setTimeout(r, 800));
 
     // DETERMINISTIC MOCK EVALUATION
-    // In a browser-only environment without a compiler API, we must simulate execution.
-    // Instead of random(), we use a deterministic hash of the code to decide if it passes.
-    // Rule: Code must be significantly different from boilerplate AND length > 40 chars.
-    
-    const boilerplate = problem.initialCode[language] || '';
+    const boilerplate = getInitialCode(problem, language);
     const isDifferent = code.trim() !== boilerplate.trim();
     const hasContent = code.length > boilerplate.length + 20;
     
     // Simple heuristic: If user wrote substantial code, pass tests. 
-    // This allows the demo to proceed smoothly for valid attempts.
     const heuristicPass = isDifferent && hasContent;
 
-    const newResults: TestResult[] = problem.testCases.map((test, i) => {
+    const safeTestCases = problem.testCases || [];
+
+    const newResults: TestResult[] = safeTestCases.map((test, i) => {
         // If it's a "hidden" edge case, make it harder to pass (require longer code)
         const isHard = !test.visible; 
         const passed = heuristicPass && (!isHard || code.length > boilerplate.length + 50);
@@ -69,7 +72,7 @@ const CodeWorkspace: React.FC<CodeWorkspaceProps> = ({ problem, isLastProblem, o
     setTestResults(newResults);
     setIsRunning(false);
     
-    const allPassed = newResults.every(r => r.passed);
+    const allPassed = newResults.length > 0 && newResults.every(r => r.passed);
     setConsoleOutput(prev => [
         ...prev, 
         `> Execution Complete.`,
@@ -98,6 +101,11 @@ const CodeWorkspace: React.FC<CodeWorkspaceProps> = ({ problem, isLastProblem, o
       }
   };
 
+  // Safe checks for rendering
+  const safeTags = Array.isArray(problem.tags) ? problem.tags : [];
+  const safeDifficulty = problem.difficulty || 'Medium';
+  const safeTestCases = problem.testCases || [];
+
   return (
     <div className="flex flex-col h-full bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-2xl animate-fade-in">
       
@@ -106,15 +114,15 @@ const CodeWorkspace: React.FC<CodeWorkspaceProps> = ({ problem, isLastProblem, o
         <div className="flex items-center space-x-4">
             <div className="flex items-center text-slate-200 font-bold">
                 <Terminal className="w-4 h-4 mr-2 text-cyan-400" />
-                {problem.title}
+                {problem.title || "Untitled Challenge"}
             </div>
             <div className="h-4 w-px bg-slate-700" />
             <div className="flex space-x-2">
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${problem.difficulty === 'Easy' ? 'bg-green-500/20 text-green-400' : problem.difficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
-                    {problem.difficulty}
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${safeDifficulty === 'Easy' ? 'bg-green-500/20 text-green-400' : safeDifficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
+                    {safeDifficulty}
                 </span>
                 <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 flex items-center">
-                    <Clock className="w-3 h-3 mr-1" /> {problem.timeLimit}m
+                    <Clock className="w-3 h-3 mr-1" /> {problem.timeLimit || 15}m
                 </span>
             </div>
         </div>
@@ -178,7 +186,7 @@ const CodeWorkspace: React.FC<CodeWorkspaceProps> = ({ problem, isLastProblem, o
                     <div className="prose prose-invert prose-sm max-w-none">
                         <p className="whitespace-pre-wrap text-slate-300 leading-relaxed">{problem.description}</p>
                         <div className="mt-4 space-y-2">
-                            {problem.tags.map(tag => (
+                            {safeTags.map(tag => (
                                 <span key={tag} className="inline-block px-2 py-1 rounded-full bg-slate-800 text-xs text-slate-400 mr-2">#{tag}</span>
                             ))}
                         </div>
@@ -204,9 +212,10 @@ const CodeWorkspace: React.FC<CodeWorkspaceProps> = ({ problem, isLastProblem, o
                         {testResults && (
                             <div className="space-y-2">
                                 {testResults.map((res, i) => {
-                                    const testConfig = problem.testCases.find(t => t.id === res.testId);
+                                    // Robust finding of test config
+                                    const testConfig = safeTestCases.find(t => t.id === res.testId) || safeTestCases[i];
                                     return (
-                                        <div key={res.testId} className={`p-3 rounded border ${res.passed ? 'bg-green-900/10 border-green-500/30' : 'bg-red-900/10 border-red-500/30'}`}>
+                                        <div key={res.testId || i} className={`p-3 rounded border ${res.passed ? 'bg-green-900/10 border-green-500/30' : 'bg-red-900/10 border-red-500/30'}`}>
                                             <div className="flex items-center justify-between mb-1">
                                                 <div className="flex items-center">
                                                     {res.passed ? <CheckCircle className="w-3 h-3 text-green-400 mr-2" /> : <XCircle className="w-3 h-3 text-red-400 mr-2" />}

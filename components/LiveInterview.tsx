@@ -287,7 +287,7 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
                             const userText = currentInputTranscriptionRef.current.trim();
                             const agentText = currentOutputTranscriptionRef.current.trim();
                             // Filter out any hidden trigger text if it somehow echoes back
-                            if (userText && !userText.includes("User has connected") && !userText.includes("The user has joined")) {
+                            if (userText && !userText.includes("User has connected") && !userText.includes("The user has joined") && !userText.includes("SYSTEM_EVENT")) {
                                 setTranscripts(prev => [...prev, { speaker: 'user', text: userText, timestamp: Date.now() }]);
                             }
                             if (agentText) {
@@ -499,20 +499,43 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
           });
 
           if (result.text) {
-              const problem: CodingProblem = JSON.parse(result.text);
-              // Validate ID uniqueness
-              if (!problem.id) problem.id = crypto.randomUUID();
-              
-              setCodingProblems(prev => [...prev, problem]);
-              // If this is the first problem, we are ready to show it
-              if (codingProblems.length === 0) {
-                  setCurrentProblemIndex(0);
+              let problem: CodingProblem;
+              try {
+                  // Robust JSON cleaning to strip Markdown
+                  let cleanText = result.text.replace(/```json\n?|\n?```/g, '').trim();
+                  const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+                  if (jsonMatch) cleanText = jsonMatch[0];
+                  problem = JSON.parse(cleanText);
+              } catch (e) {
+                  console.error("Invalid JSON from problem gen", e);
+                  throw new Error("Failed to parse problem");
               }
+
+              // Validate/Defaults to prevent crashes
+              if (!problem.id) problem.id = crypto.randomUUID();
+              if (!problem.initialCode) problem.initialCode = { javascript: '// Write solution here' };
+              
+              setCodingProblems(prev => {
+                  const updated = [...prev, problem];
+                  // If this was the first one added, set current index AND inform AI
+                  if (prev.length === 0) {
+                       setCurrentProblemIndex(0);
+                       
+                       // INJECT CONTEXT: Tell Live AI that user is now seeing a new problem
+                       if (sessionPromiseRef.current) {
+                            sessionPromiseRef.current.then(session => {
+                                // Sending this as text input simulates a system event
+                                session.sendRealtimeInput({
+                                    text: `[SYSTEM EVENT: A new coding problem has been displayed to the user: "${problem.title}". Description: ${problem.description.substring(0, 200)}... The user is now reading it. Proceed by asking for their approach.]`
+                                });
+                            });
+                       }
+                  }
+                  return updated;
+              });
           }
       } catch (error) {
           console.error("Failed to generate coding problem", error);
-          // Use a fallback if generation fails, to not break flow
-          // In real app, show toast error
       } finally {
           setIsGeneratingProblem(false);
       }
@@ -541,12 +564,20 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
   const handleProblemComplete = () => {
       const currentProblem = codingProblems[currentProblemIndex];
       
-      // Inject System Context for AI
+      // Inject System Context for AI via session text input
+      if (sessionPromiseRef.current) {
+          sessionPromiseRef.current.then(session => {
+              session.sendRealtimeInput({
+                  text: `[SYSTEM_EVENT: User submitted solution for "${currentProblem.title}". Result: Submitted. Proceed to next question or wrap up coding section.]`
+              });
+          });
+      }
+
       setTranscripts(prev => [
           ...prev, 
           { 
               speaker: 'user', // System disguised as user context
-              text: `[SYSTEM_EVENT]: User submitted solution for "${currentProblem.title}". Result: Submitted. Proceed to next question or wrap up coding section.`, 
+              text: `[SYSTEM_EVENT]: User submitted solution for "${currentProblem.title}".`, 
               timestamp: Date.now() 
           }
       ]);
