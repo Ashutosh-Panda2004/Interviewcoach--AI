@@ -571,6 +571,14 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
   const statusColor = status === 'connected' ? 'bg-green-500' : status === 'paused' ? 'bg-yellow-500' : status === 'error' ? 'bg-red-500' : 'bg-orange-500';
   const currentProblem = codingProblems[currentProblemIndex];
 
+  // Helper for input visualizer colors based on state
+  const getInputVisualizerColor = () => {
+    if (status === 'error') return '#ef4444'; // Red
+    if (isMicMuted) return '#ef4444'; // Red
+    if (status === 'paused') return '#eab308'; // Yellow
+    return '#22d3ee'; // Cyan (Active)
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-950 text-white flex flex-col z-50 animate-fade-in">
       
@@ -656,19 +664,23 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
             {/* Self View (Moved in Coding Mode) */}
             <div className={`absolute transition-all duration-500 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-2xl z-20 ${activeMode === 'CODING' ? 'bottom-28 left-4 w-32 h-24' : 'bottom-32 right-8 w-48 h-32'}`}>
                 <div className="w-full h-full bg-slate-900 flex items-center justify-center relative">
-                    <div className={`w-full h-full ${isMicMuted || status === 'paused' ? 'opacity-20' : 'opacity-100'}`}>
-                         <AudioVisualizer analyser={inputAnalyserState} isActive={!isMicMuted && status === 'connected'} mode="bar" color="#94a3b8" />
+                    <div className="w-full h-full opacity-100">
+                         <AudioVisualizer 
+                            analyser={inputAnalyserState} 
+                            isActive={!isMicMuted && status === 'connected'} 
+                            mode="bar" 
+                            color={getInputVisualizerColor()} 
+                        />
                     </div>
-                    {isMicMuted && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-                            <MicOff className="w-6 h-6 text-red-500" />
-                        </div>
-                    )}
-                    {status === 'paused' && !isMicMuted && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-                             <Pause className="w-6 h-6 text-yellow-500" />
-                        </div>
-                    )}
+                    
+                    {/* Visual Overlays for Mute/Pause states */}
+                    <div className={`absolute inset-0 flex items-center justify-center bg-slate-950/40 backdrop-blur-[1px] transition-opacity duration-300 ${isMicMuted ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                        <MicOff className="w-8 h-8 text-red-500 drop-shadow-lg animate-pulse" />
+                    </div>
+                    
+                    <div className={`absolute inset-0 flex items-center justify-center bg-slate-950/40 backdrop-blur-[1px] transition-opacity duration-300 ${!isMicMuted && status === 'paused' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                         <Pause className="w-8 h-8 text-yellow-500 drop-shadow-lg" />
+                    </div>
                 </div>
             </div>
 
@@ -681,15 +693,12 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
                         onClick={() => setIsMicMuted(!isMicMuted)} 
                         className={`p-4 rounded-xl transition-all duration-200 flex items-center justify-center group relative ${
                             isMicMuted 
-                            ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' 
+                            ? 'bg-red-600 text-white hover:bg-red-500 shadow-lg shadow-red-900/50' 
                             : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
                         }`}
                         title={isMicMuted ? "Unmute Microphone" : "Mute Microphone"}
                     >
                         {isMicMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-                        {!isMicMuted && status === 'connected' && (
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                        )}
                     </button>
 
                     {/* Play / Pause Toggle */}
@@ -716,7 +725,7 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
                 </div>
             </div>
 
-            {/* Pause Overlay */}
+            {/* Pause Overlay (Main Screen) */}
             {status === 'paused' && (
                 <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/60 backdrop-blur-[2px] animate-fade-in">
                     <div className="text-center p-8 rounded-2xl bg-slate-900/90 border border-slate-700 shadow-2xl transform scale-105">
