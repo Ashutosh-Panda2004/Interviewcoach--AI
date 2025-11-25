@@ -1,6 +1,8 @@
+
+
 // utils/prompts.ts
 // -----------------------------------------------------------------------------
-// ENTERPRISE PROMPT ENGINE v4.3 (JSON-STRICT, TYPE-ALIGNED, FALLBACK-READY)
+// ENTERPRISE PROMPT ENGINE v4.5 (JSON-STRICT, FULL-CONTEXT, RESUME-OPTIMIZED)
 // This file returns all prompts as JSON strings so you can paste it directly.
 // Architecture: Modular, JSON-driven, TOON-compatible.
 // Focus: Dynamic adaptation to every permutation of user settings.
@@ -20,6 +22,8 @@ export type InterviewSettingsFull = InterviewSettings & {
 };
 
 const AGENT_NAME = "Sarah";
+// Increased limit for resume text since Gemini 2.5 Flash has ~1M token window
+const SAFE_RESUME_LIMIT = 100_000; 
 const SAFE_TRANSCRIPT_LIMIT = 120_000;
 const DEVELOPER_RESUME_LOCAL_PATH = '/mnt/data/Screenshot 2025-11-22 at 7.09.33 PM.png';
 
@@ -73,7 +77,7 @@ const buildIdentity = (role: string, language: string) => {
       coreMission: `You are ${AGENT_NAME}, a ${displayRole} with deep hiring experience. Evaluate fairly, probe deeply, and avoid hallucination.`
     },
     meta: {
-      version: "4.2",
+      version: "4.5",
       engine: "InterviewCoach-Core",
       createdAt: nowIso(),
       instructionSet: "JSON-STRICT TOON"
@@ -88,8 +92,8 @@ const buildToon = (durationMinutes: number | undefined, focusArea?: string, hasR
 
   // Adjust orchestration phases based on resume presence
   const phases = hasResume ? [
-      `Greeting & Resume Verification (${introTime}m)`,
-      `Resume Deep Dive (Projects & Experience) (${deepDiveMinutes}m)`,
+      `Greeting & Resume Verification (${introTime}m) - ACKNOWLEDGE RESUME IMMEDIATELY`,
+      `Resume Deep Dive (Projects & Experience) (${deepDiveMinutes}m) - PROBE SPECIFIC CLAIMS`,
       `Technical validation based on resume claims`,
       "Challenge / Coding / System Design phase",
       "Wrap-up & candidate questions"
@@ -105,7 +109,9 @@ const buildToon = (durationMinutes: number | undefined, focusArea?: string, hasR
     TOON: {
       TASK: {
         primary: "Conduct a realistic, psychologically-attuned mock interview.",
-        secondary: hasResume ? `Focus on verifying and probing the uploaded resume content, then ${focusArea || 'role-relevant topics'}.` : `Focus on: ${focusArea || 'role-relevant topics'}.`,
+        secondary: hasResume 
+            ? `CRITICAL: The user has uploaded a resume. You MUST read the content in <<<RESUME_CONTENT>>>. Your questions MUST be based on their actual experience.` 
+            : `Focus on: ${focusArea || 'role-relevant topics'}.`,
         tertiary: "Evaluate reasoning, communication, technical skill, and fit."
       },
       OUTPUT: {
@@ -217,6 +223,11 @@ const buildContext = (settings: InterviewSettingsFull, resumeText?: string) => {
   const difficulty = settings.difficulty || 'Medium';
   // Check if resume text is substantial enough to be useful
   const resumeProvided = !!(resumeText && resumeText.length > 50);
+  
+  // Wrap resume in clear delimiters for the AI
+  const formattedResume = resumeProvided 
+    ? `\n<<<RESUME_CONTENT_START>>>\n${sanitize(resumeText!).slice(0, SAFE_RESUME_LIMIT)}\n<<<RESUME_CONTENT_END>>>\n`
+    : null;
 
   return {
     CONTEXT: {
@@ -226,9 +237,9 @@ const buildContext = (settings: InterviewSettingsFull, resumeText?: string) => {
       focusArea: settings.focusArea || null,
       resume: resumeProvided ? {
         status: "PROVIDED",
-        // Increased limit and used robust sanitizer to keep formatting
-        excerpt: sanitize(resumeText!).slice(0, 10000),
-        auditInstruction: "FORENSIC MODE: The user uploaded a resume. Cross-reference all answers against it. Probe specific projects listed in the text. If they claim a skill, verify it."
+        content_markers: "See <<<RESUME_CONTENT>>> blocks",
+        full_text: formattedResume,
+        auditInstruction: "FORENSIC MODE ENABLED: The user has uploaded a resume. You must ignore generic questions and instead ask about the specific projects, tenures, and metrics found in the RESUME_CONTENT block above. If the resume is just a few words or error text, point that out."
       } : {
         status: "NOT_PROVIDED",
         instruction: "Ask candidate to summarize background and key projects. If the user mentions they uploaded a file but it was unreadable, ask them to describe it."
@@ -351,7 +362,8 @@ export const constructInterviewSystemPrompt = (
   // Select Greeting based on Context
   const standardGreeting = `You must start the session. Say: "Hi, I'm ${AGENT_NAME}. I see you're applying for the ${settings.role || 'Software Engineer'} role. Ready to begin?" (Customize this greeting based on Personality settings).`;
   
-  const resumeGreeting = `You must start the session. Say: "Hi, I'm ${AGENT_NAME}. I've reviewed your resume for the ${settings.role || 'Software Engineer'} role. Ready to dive into your background?" (Customize tone based on Personality). Then, IMMEDIATELY ask a specific question about a project, role, or skill mentioned in the provided resume text to start the deep dive.`;
+  // STRONGER INSTRUCTION: Force resume usage in the very first turn
+  const resumeGreeting = `You must start the session. Say: "Hi, I'm ${AGENT_NAME}. I've reviewed your resume." Then, IMMEDIATELY cite a specific project or role from the resume content (e.g., "I see you worked at...") and ask a relevant technical or behavioral question about it. Do NOT ask generic questions like "tell me about yourself".`;
 
   // Assemble final system object
   const systemObject = {
@@ -376,7 +388,7 @@ export const constructInterviewSystemPrompt = (
         "Never hallucinate unseen code or resume facts.",
         "If editor empty: request approach first.",
         "Log all hint usage and test runs with timestamps.",
-        "STRICTLY SPEAK ENGLISH ONLY. Even if the user speaks Hindi or the transcript shows non-English characters, you must reply in English. Politely request the user to speak English."
+        "STRICTLY SPEAK ENGLISH ONLY."
       ]
     }
   };
@@ -515,143 +527,59 @@ export const FEEDBACK_SYSTEM_PROMPT = (() => {
       }
     },
     guidance: {
-      "EMPTY_TRANSCRIPT_HANDLING": "CRITICAL: If the transcript is empty or extremely short (<5 words), DO NOT return an error or nulls. Instead, assume a 'Neutral/Quiet' candidate scenario. Generate a baseline report with scores around 45-55. State in the summary that the interview was too short for a full assessment but provide general advice on technical communication.",
-      "SHORT_INTERVIEW_HANDLING": "If the interview was short (e.g. seconds or minutes), do NOT return zero scores. Extrapolate based on the limited interaction. If user said 'Hello', rate Communication as 80. If user was silent, rate as 40. ALWAYS fill all scores with non-zero values (minimum 40).",
-      "NO_QUESTIONS_HANDLING": "If the interview ended before any formal questions were asked, treat the 'Greeting/Introduction' as Question 1. Analyze the candidate's professionalism during setup in the 'perQuestion' array.",
-      "MANDATORY_SCORING": "Scores must NEVER be 0. If insufficient data, use 50 as a placeholder.",
-      "CRITICAL": "You must output a valid JSON object. Do not output empty string or null. Populate all dimensions with best-effort values."
+      "EMPTY_TRANSCRIPT_HANDLING": "CRITICAL: If the transcript is empty or only contains 'Greeting', generate a baseline report with score 50 and explain that no data was collected."
     }
   };
-
   return JSON.stringify(feedbackObject, null, 2);
 })();
 
-// -----------------------------------------------------------------------------
-// V. constructFeedbackUserPrompt (returns JSON-string instructions + artifacts)
-// -----------------------------------------------------------------------------
-
 export const constructFeedbackUserPrompt = (
-  settings?: { role?: string; difficulty?: string; duration?: number },
-  resumeContext?: string,
-  transcriptText?: string,
-  artifactsNote?: string
-): string => {
-  const safeTranscript = sanitize(transcriptText || '').slice(0, SAFE_TRANSCRIPT_LIMIT);
+  settings: any,
+  resumeText: string | undefined,
+  conversationText: string,
+  artifactsNote: string = ""
+) => {
+  return `
+ANALYZE THIS INTERVIEW SESSION:
 
-  const obj = {
-    request: {
-      description: "Produce one JSON object that adheres to FEEDBACK_SYSTEM prompt schema.",
-      metadata: {
-        role: settings?.role || 'Unknown',
-        difficulty: settings?.difficulty || 'Medium',
-        duration_minutes: settings?.duration ?? 20,
-        generated_at: nowIso(),
-        resume_provided: !!resumeContext,
-        resume_url: !!resumeContext ? null : DEVELOPER_RESUME_LOCAL_PATH,
-        artifactsNote: artifactsNote || null
-      },
-      transcript: {
-        truncatedToChars: SAFE_TRANSCRIPT_LIMIT,
-        text: safeTranscript
-      },
-      artifacts: {
-        notes: "Pass codeSnapshots, testRuns, audioMarkers if available (ids + timestamps)."
-      },
-      instructions: [
-        "Return EXACTLY one JSON object following FEEDBACK_SYSTEM schema.",
-        "FORCE FILL: Do not leave scores null. If data is insufficient, use a fallback score of 50 (Neutral).",
-        "Generate at least 2 strengths and 2 improvements even if the interview was just 10 seconds long.",
-        "If transcript is empty, hallucinate a 'Baseline Assessment' so the user sees a valid report format."
-      ]
-    }
-  };
+METADATA:
+- Role: ${settings?.role || "Unknown"}
+- Difficulty: ${settings?.difficulty || "Medium"}
+- Expected Duration: ${settings?.duration || 15} mins
 
-  return JSON.stringify(obj, null, 2);
+RESUME CONTEXT:
+${resumeText ? sanitize(resumeText).slice(0, SAFE_RESUME_LIMIT) : "Not provided"}
+
+TRANSCRIPT:
+${conversationText}
+
+${artifactsNote}
+
+INSTRUCTIONS:
+1. Generate a valid JSON object matching the schema in system prompt.
+2. If resume provided, specifically fill 'resumeAnalysis' and 'resumeFit' dimension.
+3. Be strict but constructive.
+`;
 };
 
-// -----------------------------------------------------------------------------
-// VI. constructCodingProblemPrompt (returns JSON-string problem-generation spec)
-// -----------------------------------------------------------------------------
+export const constructCodingProblemPrompt = (settings: InterviewSettingsFull, previousTitles: string[]) => {
+  return `
+Generate a single new CodingProblem JSON object for a ${settings.difficulty} level ${settings.role} interview.
+Focus Area: ${settings.focusArea}.
+Previous Questions to Avoid: ${previousTitles.join(', ')}.
 
-export const constructCodingProblemPrompt = (
-  settings: InterviewSettingsFull,
-  previousProblems: string[] = []
-): string => {
-  const avoid = previousProblems.length ? previousProblems : [];
-
-  const problemSpec = {
-    generator: {
-      purpose: "Produce exactly one coding problem JSON object matching schema.",
-      role: settings.role || 'Software Engineer',
-      experienceLevel: settings.experienceLevel || 'Intermediate',
-      difficulty: settings.difficulty || 'Medium',
-      focusArea: settings.focusArea || 'General',
-      timeBudgetMapping: { Easy: 15, Medium: 20, Hard: 30 },
-      avoidList: avoid,
-      developerResumePath: DEVELOPER_RESUME_LOCAL_PATH
-    },
-    outputSchema: {
-      id: "uuid",
-      title: "string",
-      description: "string (detailed problem statement in plain text; include constraints, input formats, and examples)",
-      difficulty: settings.difficulty || 'Medium',
-      estimatedTimeMinutes: "number (map from difficulty)",
-      tags: ["string"],
-      inputFormat: "string",
-      outputFormat: "string",
-      constraints: "string or object (N ranges, memory limits)",
-      initialCode: {
-        javascript: "// JS function signature + placeholder",
-        python: "# Python function signature + placeholder"
-      },
-      testCases: [
-        { id: "t1", input: "literal or JSON", expectedOutput: "literal or JSON", visible: true },
-        { id: "t2", input: "literal or JSON", expectedOutput: "literal or JSON", visible: true },
-        { id: "h1", input: "edge case", expectedOutput: "expected", visible: false }
-      ],
-      hints: ["string (Hint 1)", "string (Hint 2)"],
-      expectedComplexity: "Time: O(...), Space: O(...)",
-      validationPlan: "Explain how visible + hidden tests validate correctness, performance, edge cases.",
-      scoringWeights: {
-        correctness: 0.5,
-        performance: 0.2,
-        edgeCases: 0.15,
-        style: 0.1
-      },
-      metadata: {
-        generatorVersion: "4.2",
-        createdAt: nowIso()
-      }
-    },
-    generationRules: {
-      realism: "Problems must be grounded in real engineering tasks; avoid pure math unless role needs it.",
-      boilerplate: {
-        requiredLanguages: ["javascript", "python"],
-        boilerplateMustInclude: [
-          "Function signature",
-          "Comment 'Write your code here'",
-          "Example invocation for local testing"
-        ],
-        mustNotContainSolution: true
-      },
-      testsRule: {
-        visibleCountMin: 2,
-        hiddenCountMin: 2,
-        hiddenMustIncludePerformance: true
-      },
-      approachGating: {
-        "IfEditorEmpty": "Interviewer must ask for approach, not implementation.",
-        "IfEditorNonEmpty": "Interviewer may probe only code that exists in editor; never hallucinate variables or functions."
-      },
-      provenance: "Include creation prompt / module hashes for traceability (in metadata)."
-    }
-  };
-
-  return JSON.stringify(problemSpec, null, 2);
+Return ONLY valid JSON matching this interface:
+interface CodingProblem {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  timeLimit: number;
+  tags: string[];
+  initialCode: { javascript: string, python: string };
+  testCases: { id: string, input: string, expectedOutput: string, visible: boolean }[];
+  expectedComplexity: string;
+  hints: string[];
+}
+`;
 };
-
-// -----------------------------------------------------------------------------
-// VII. Export developer path constant (for other modules to reuse if needed)
-// -----------------------------------------------------------------------------
-
-export const DEVELOPER_SAMPLE_RESUME_PATH = DEVELOPER_RESUME_LOCAL_PATH;
