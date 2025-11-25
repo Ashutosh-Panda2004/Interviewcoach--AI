@@ -1,157 +1,177 @@
-# 🎙️ InterviewCoach AI
+# InterviewCoach AI
 
-**A Next-Generation Voice-First Interview Preparation Agent powered by Google Gemini Multimodal Live API.**
+A voice-first interview preparation platform powered by Google Gemini's Multimodal Live API. Practice technical and behavioral interviews with an intelligent AI interviewer that adapts to your experience and provides real-time feedback.
 
-InterviewCoach AI transforms the way candidates prepare for technical and behavioral interviews. By leveraging the low-latency capabilities of the Gemini Multimodal Live API, it provides a seamless, real-time voice conversation experience that mimics a real human interviewer, complete with interruptions, turn-taking, and dynamic adaptation.
+## Overview
 
----
+InterviewCoach AI solves a real problem: most candidates practice interviews alone or with friends who can't replicate the pressure and dynamic nature of real interviews. This tool uses advanced AI to create a realistic interview experience with a conversational agent that interrupts naturally, adapts to your answers, and can switch between casual discussion and intense technical problem-solving.
 
-## 🌟 Key Features
+The platform focuses on three core areas: voice-based natural conversation, context-aware questioning based on your actual experience, and comprehensive post-interview analytics so you know exactly where to improve.
 
-### 🧠 Intelligent Voice Interaction
-*   **Real-time Conversation:** Uses `AudioWorklet` for low-latency audio streaming (PCM 16kHz) to Google's Gemini 2.5 Flash model.
-*   **Natural Turn-Taking:** Handles interruptions and silence naturally.
-*   **Personalities:** Configure the interviewer to be "Strict", "Helpful", "Neutral", or "Friendly".
-*   **Audio Visualization:** Real-time orb and waveform visualizations powered by the Web Audio API.
+## Core Features
 
-### 📄 Context-Aware Resume Parsing
-*   **PDF Analysis:** Upload your resume (PDF/Text) directly. The AI parses the text client-side (via `pdfjs-dist`) and tailors questions specifically to your experience.
-*   **Deep Dives:** The AI cross-references your answers with your resume claims to check for consistency.
+### Real-Time Voice Interaction
 
-### 💻 Integrated Coding Workspace
-*   **Live Coding Challenges:** Seamlessly switches between conversational and technical modes.
-*   **Simulated Sandbox:** A built-in code editor (supporting JS, Python, etc.) with a mock execution environment.
-*   **Algorithmic Testing:** Runs simulated test cases against your code with time complexity constraints.
+The heart of this platform is a seamless voice conversation powered by Google's Gemini 2.5 Flash model. Instead of typing, you speak naturally to the AI interviewer. The system uses low-latency WebSocket connections and browser-native AudioWorklet processing to stream your audio at 16kHz PCM format.
 
-### 📊 Comprehensive Post-Interview Analytics
-*   **Composite Scoring:** Receive a 0-100 score based on 7 dimensions (Communication, Technical, Structure, etc.).
-*   **Radar Charts:** Visual breakdown of your skill profile using `Recharts`.
-*   **Heatmaps & Trendlines:** Track your improvement over time via the Dashboard.
-*   **Question-by-Question Breakdown:** Detailed feedback on every answer you gave, including "Better Sample Answers".
+What makes this different from other tools is the natural turn-taking. The AI doesn't just wait for you to finish speaking—it can interrupt, handle overlapping speech, and create the natural back-and-forth rhythm of a real interview. You can choose from four interviewer personas: Strict (challenging, technical), Helpful (encouraging, guiding), Neutral (professional, balanced), or Friendly (casual, collaborative).
 
-### 🎮 Gamified Modes
-*   **Blind Mode:** Randomizes difficulty, personality, and interview type for a surprise challenge.
-*   **Demo Mode:** A scripted flow for presentations and testing.
+There's also real-time audio visualization so you can see your voice levels and the AI's responses as waveforms and dynamic visual elements.
 
----
+### Resume-Based Question Generation
 
-## 🛠️ Tech Stack
+Upload your resume as a PDF or text file, and the system analyzes it client-side to extract your experience, skills, and projects. Instead of generic questions, the AI asks about your actual work. If you mention building a microservices architecture in your resume, you'll get deep questions about that specific project.
 
-| Component | Technology | Description |
-| :--- | :--- | :--- |
-| **Framework** | React 19 + TypeScript | Core UI and component logic. |
-| **AI Model** | Google Gemini 2.5 Flash | Powered by `@google/genai` SDK. |
-| **Real-time API** | Multimodal Live API | WebSocket-based low-latency audio streaming. |
-| **Audio** | Web Audio API + AudioWorklet | Browser-native audio processing and buffering. |
-| **Styling** | Tailwind CSS | Responsive, dark-mode-first design. |
-| **Charts** | Recharts | Analytics visualization. |
-| **Icons** | Lucide React | Modern SVG iconography. |
-| **PDF Processing** | PDF.js | Client-side resume text extraction. |
+The AI also cross-checks your interview answers against your resume claims, so there's accountability. If you exaggerate something in an interview, the AI will gently call it out.
 
----
+### Integrated Code Editor and Technical Challenges
 
-## 🚀 Getting Started
+When the interview shifts to technical questions, you're not fumbling between tabs. There's a built-in code workspace supporting JavaScript, Python, and other languages. You write code directly in the editor, and the system runs simulated test cases against your solution with timing information.
 
-### Prerequisites
-*   **Node.js** (v18 or higher)
-*   **Google Gemini API Key** (Must have access to the Multimodal Live API)
+This isn't a full sandbox—it's a simplified environment that lets you write and test algorithmic solutions quickly. The AI can review your code, suggest optimizations, and discuss your approach.
+
+### Comprehensive Analytics Dashboard
+
+After each interview, you get a detailed report with:
+
+- A composite score (0-100) based on seven dimensions: Communication Clarity, Technical Depth, Problem Structure, Time Management, Confidence, Stress Resilience, and Follow-Through.
+- Visual breakdown of your strengths and weaknesses using radar charts.
+- Question-by-question feedback with suggested better answers.
+- Historical tracking across multiple sessions so you can see your improvement over time.
+- Pressure resilience index—how well you handle being put on the spot.
+
+The dashboard shows trends. You can see if you're getting better at explaining concepts or if you still need work on thinking out loud while coding.
+
+### Special Modes
+
+**Blind Mode** randomizes the difficulty level, interviewer personality, and interview type (behavioral, technical, mixed) so you can test your adaptability and get surprised with different scenarios.
+
+**Demo Mode** uses a scripted flow that's useful for presentations, team demos, or testing the platform without going through a full interview.
+
+## Technical Stack
+
+The platform is built with modern web technologies designed for reliability and performance:
+
+**React 19 with TypeScript** provides a solid foundation for managing complex state and audio streams. **Google Gemini 2.5 Flash** handles the AI logic—it's fast enough for real-time conversation without noticeable lag.
+
+The **Multimodal Live API** is a WebSocket-based connection that streams audio bidirectionally. The **Web Audio API** and **AudioWorklet** handle the heavy lifting on the client side—audio buffering, PCM encoding/decoding, and downsampling happen in your browser.
+
+**Tailwind CSS** keeps the UI responsive and dark-mode-first. **Recharts** renders all the analytics visualizations. **Lucide React** provides clean, modern icons. **PDF.js** extracts text from resume PDFs in the browser, so your resume never leaves your machine.
+
+## Getting Started
+
+### Requirements
+
+You'll need Node.js 18 or higher and a Google Gemini API key with access to the Multimodal Live API. If you're using the free tier, there may be rate limits—check Google's pricing page for details.
 
 ### Installation
 
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com/yourusername/Interviewcoach--AI.git
-    cd interview-coach-ai
-    ```
+**1. Clone and install**
 
-2.  **Install Dependencies**
-    ```bash
-    npm install
-    ```
-
-3.  **Environment Configuration**
-    Create a `.env` file in the root directory and add your API key.
-    *Note: The application expects the key to be available via `process.env.API_KEY`.*
-
-    ```env
-    API_KEY=your_google_gemini_api_key_here
-    ```
-
-    *(If using Vite, you may need to prefix with `VITE_` and update the code references, or use a bundler replacement plugin).*
-
-4.  **Run the Application**
-    ```bash
-    npm start
-    # or
-    npm run dev
-    ```
-
-5.  **Open in Browser**
-    Navigate to `http://localhost:3000` (or the port shown in your terminal).
-
----
-
-## 📖 Usage Guide
-
-### 1. Setup Phase
-*   **Configure Role:** Enter your target role (e.g., "Senior React Developer").
-*   **Upload Resume:** Drag and drop your PDF resume. The system will extract the text.
-*   **Settings:** Choose difficulty, duration, and interviewer personality.
-*   **Blind Mode:** Toggle this for a randomized challenge.
-
-### 2. Live Interview
-*   **Microphone Access:** Allow microphone permissions when prompted.
-*   **Conversation:** Speak naturally. You can interrupt the AI if needed.
-*   **Coding:** If asked a technical question, click "Open Editor" to write code.
-*   **Controls:** You can mute the mic or pause the session at any time.
-
-### 3. Feedback & Dashboard
-*   **Immediate Report:** Upon ending the call, wait a moment for the AI to generate a detailed report.
-*   **Dashboard:** Visit the dashboard to see your historical progress, pressure resilience index, and skill evolution graphs.
-
----
-
-## 📂 Project Structure
-
-```text
-/
-├── components/
-│   ├── AudioVisualizer.tsx   # Canvas-based audio visualizations
-│   ├── CodeWorkspace.tsx     # Mock code editor and test runner
-│   ├── Dashboard.tsx         # Analytics and history view
-│   ├── Feedback.tsx          # Post-interview report generation
-│   ├── LiveInterview.tsx     # Core logic: WebSockets, AudioWorklet, Gemini connection
-│   ├── Navbar.tsx            # Navigation
-│   └── Setup.tsx             # Configuration screen
-├── utils/
-│   ├── audioUtils.ts         # PCM encoding/decoding, downsampling
-│   ├── codingProblems.ts     # Database of mock coding questions
-│   ├── mockData.ts           # Sample data for dashboard testing
-│   ├── prompts.ts            # System instructions for the AI persona
-│   └── storage.ts            # LocalStorage wrapper for interview history
-├── App.tsx                   # Main router and state manager
-├── index.html                # Entry point (Import maps & Tailwind)
-├── index.tsx                 # React DOM root
-└── types.ts                  # TypeScript interfaces
+```bash
+git clone https://github.com/yourusername/interview-coach-ai.git
+cd interview-coach-ai
+npm install
 ```
 
+**2. Set up your API key**
+
+Create a `.env` file in the root directory:
+
+```env
+API_KEY=your_google_gemini_api_key_here
+```
+
+If you're using Vite, you might need to prefix this with `VITE_` and update the import references, or use a bundler replacement plugin.
+
+**3. Start the development server**
+
+```bash
+npm start
+# or for development mode
+npm run dev
+```
+
+Open your browser to `http://localhost:3000`.
+
+## How to Use
+
+### Before You Start
+
+Think about what role you're interviewing for. Are you targeting a Senior React Developer position? A Backend Engineer role? A Product Manager spot? The AI tailors the interview to your target role.
+
+Upload your resume. The system reads it locally and uses it to generate relevant questions. You'll be asked about specific projects and technologies you've listed.
+
+Choose your settings: how long do you want the interview to last (15, 30, or 45 minutes)? How challenging should it be (easy, medium, hard)? What personality would you prefer from the interviewer? Then hit start.
+
+### During the Interview
+
+Allow microphone access when prompted. Speak naturally. You don't need to be perfectly polished—the AI wants to hear how you think.
+
+If you're asked a technical question and need to code, click the "Open Editor" button. Write your solution, run it against test cases, and explain your approach. When you're done, you can go back to voice conversation.
+
+You can interrupt the interviewer if you want to clarify something or add more context. You can also pause or mute at any time if you need a break.
+
+### After the Interview
+
+When you're done, the system generates a report. This takes a moment as it analyzes everything you said. You'll see:
+
+- Your overall score
+- A breakdown of each dimension
+- Specific feedback on each question you answered
+- Better sample answers for the questions you struggled with
+- Comparison to your previous interviews
+
+All of this is saved to your local dashboard, so you can track improvement over weeks of practice.
+
+## Project Structure
+
+The codebase is organized by responsibility:
+
+**Components** handle the UI—the audio visualizer shows your voice levels in real-time, the code workspace is a mini-IDE, the dashboard displays all your historical data, the setup screen collects your preferences, and the live interview component orchestrates everything.
+
+**Utils** contains helper functions: audio utilities handle PCM encoding and downsampling, mock coding problems are a database of technical challenges, prompts define the AI's system instructions and personality, and storage handles persisting your interview history to local storage.
+
+**Types** define all the TypeScript interfaces used throughout the app.
+
+## Troubleshooting
+
+**Disconnects or Network Errors**
+
+The app uses advanced audio buffering to maintain a stable connection. If you're getting disconnected, check your internet stability. The app attempts to reconnect automatically up to 8 times before giving up.
+
+**Permission Denied (403)**
+
+Make sure your Google Cloud project has the "Generative Language API" enabled. Double-check that you're using an API key that has access to the Multimodal Live API. Some API keys are restricted to specific APIs.
+
+**Microphone Not Working**
+
+Check your browser permissions—the app needs access to `navigator.mediaDevices.getUserMedia`. In Chrome, this is usually in Settings > Privacy and Security > Site Settings > Microphone. Make sure this domain is allowed.
+
+**Slow Response or Lag**
+
+If the AI feels slow to respond, it could be a bandwidth issue or your API key's rate limit. Try closing other tabs that use internet and check your connection speed.
+
+## Development & Contributing
+
+The codebase is designed to be easy to extend. Want to add a new interviewer personality? Update the prompts file. Want to add more coding languages? Extend the code workspace component. Want to add new analytics? Build them in the feedback component.
+
+If you're making changes, make sure to test with both voice and video. Audio streaming can behave differently than regular network requests, so always verify with your microphone connected.
+
+## License
+
+This project is open-source under the MIT License. Use it, modify it, share it.
+
+## What's Next
+
+Future versions are planned to include:
+
+- Integration with actual coding platforms like LeetCode for real-time code validation
+- Support for system design interviews with whiteboarding capability
+- Group mock interviews where multiple candidates interview together
+- AI-powered coaching hints during the interview itself
+- Integration with popular video call platforms for seamless recording and sharing
+
 ---
 
-## ⚠️ Troubleshooting
-
-*   **"Network Error" / Disconnects:**
-    *   The app uses advanced audio buffering. If you experience disconnects, ensure your internet connection is stable. The app automatically attempts to reconnect 8 times before failing.
-*   **"Permission Denied" (403):**
-    *   Ensure your API Key has the "Generative Language API" enabled in Google Cloud Console.
-    *   Verify you are using a model that supports the Live API (`gemini-2.5-flash-native-audio-preview`).
-*   **Microphone Issues:**
-    *   Check browser permissions. The app requires access to `navigator.mediaDevices.getUserMedia`.
-
----
-
-## 🛡️ License
-
-This project is open-source and available under the MIT License.
-
----
-
+**Built with care for candidates who want to interview better.**
