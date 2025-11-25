@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { InterviewSettings, InterviewType, InterviewerPersonality } from '../types';
-import { PlayCircle, Briefcase, UploadCloud, FileText, CheckCircle2, Clock, Gauge, Sparkles, UserCog, Swords, Dna, Settings2, Loader2, Presentation } from 'lucide-react';
+import { PlayCircle, Briefcase, UploadCloud, FileText, CheckCircle2, Clock, Gauge, Sparkles, UserCog, Swords, Dna, Settings2, Loader2, Presentation, AlertCircle } from 'lucide-react';
 // @ts-ignore
 import * as pdfjsLibModule from 'pdfjs-dist';
 
@@ -9,8 +9,10 @@ import * as pdfjsLibModule from 'pdfjs-dist';
 const pdfjsLib = (pdfjsLibModule as any).default || pdfjsLibModule;
 
 // Set worker source for PDF.js - MUST match the version in index.html exactly
+// We use unpkg here because it serves the raw worker script which works better with browser Worker() 
+// than esm.sh's module-wrapped version in some contexts (prevents "Setting up fake worker failed" error).
 if (pdfjsLib.GlobalWorkerOptions) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 }
 
 interface SetupProps {
@@ -36,6 +38,7 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
   const [isDemoMode, setIsDemoMode] = useState(false); // NEW: Demo Mode State
   const [fileName, setFileName] = useState<string | null>(null);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Apply initial settings if provided (e.g., from Dashboard)
@@ -97,25 +100,46 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
   const extractTextFromPdf = async (file: File) => {
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      // Use standard font data and CMaps to avoid "empty text" errors
+      // using UNPKG to avoid CORS/ESM issues that occur with esm.sh for static assets
+      const loadingTask = pdfjsLib.getDocument({
+        data: arrayBuffer,
+        cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+        cMapPacked: true,
+        standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
+      });
+
+      const pdf = await loadingTask.promise;
       let fullText = '';
       
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(' ');
-        fullText += pageText + '\n';
+        
+        // Improve text layout: Join items with NEWLINES to preserve list structures
+        // Resumes are often vertical lists; joining with space breaks the context for the AI.
+        const pageItems = textContent.items
+            .map((item: any) => item.str)
+            .filter((str: string) => str.trim().length > 0);
+            
+        // Join with newline to preserve bullets/sections
+        const pageText = pageItems.join('\n');
+
+        fullText += `--- Page ${i} ---\n${pageText}\n\n`;
       }
       
       return fullText;
     } catch (error) {
       console.error("PDF Extraction Failed:", error);
-      throw new Error("Could not read PDF text");
+      throw new Error("Could not parse PDF. It might be an image scan, encrypted, or corrupted.");
     }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    setUploadError(null);
+
     if (file) {
       setFileName(file.name);
       setIsProcessingFile(true);
@@ -123,9 +147,12 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
       try {
         if (file.type === 'application/pdf') {
             const text = await extractTextFromPdf(file);
-            // If extraction yields very little text, fallback to placeholder but warn
-            if (text.trim().length < 50) {
-                 setResumeText(`[PDF PARSE FAILED for ${file.name}. User instructions: Please ask the candidate about their resume details as the file content was unreadable.]`);
+            
+            // Validation: If extraction yields very little text, it might be a scanned image
+            if (text.replace(/[\s\n-]/g, '').length < 50) {
+                 const warning = `[WARNING: PDF PARSE YIELDED LOW CONTENT. This file may be a scanned image.]`;
+                 setResumeText(warning);
+                 setUploadError("This PDF appears to be an image scan (no selectable text). Please use a standard text-based PDF.");
             } else {
                  setResumeText(text);
             }
@@ -138,9 +165,11 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
             };
             reader.readAsText(file);
         }
-      } catch (err) {
+      } catch (err: any) {
           console.error("File upload error", err);
-          setResumeText(`[RESUME UPLOAD ERROR for ${file.name}]`);
+          setResumeText('');
+          setUploadError(err.message || "Failed to read file.");
+          setFileName(null);
       } finally {
           setIsProcessingFile(false);
       }
@@ -154,6 +183,7 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
   const clearFile = () => {
     setFileName(null);
     setResumeText('');
+    setUploadError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -450,7 +480,9 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
               <div 
                 onClick={triggerFileUpload}
                 className={`relative group cursor-pointer h-64 rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center p-6 text-center ${
-                  fileName 
+                  uploadError
+                    ? 'border-red-500/50 bg-red-500/5'
+                    : fileName 
                     ? 'border-green-500/50 bg-green-500/5' 
                     : 'border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/50 bg-slate-950'
                 }`}
@@ -466,21 +498,37 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
                 {isProcessingFile ? (
                     <div className="animate-fade-in flex flex-col items-center">
                         <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mb-3" />
-                        <p className="text-cyan-200 text-sm">Extracting Text...</p>
+                        <p className="text-cyan-200 text-sm">Parsing Resume...</p>
                     </div>
                 ) : fileName ? (
-                  <div className="animate-fade-in">
-                    <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle2 className="w-8 h-8 text-green-400" />
-                    </div>
-                    <p className="text-white font-medium mb-1 truncate max-w-[200px]">{fileName}</p>
-                    <p className="text-green-400 text-sm">Resume Uploaded</p>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); clearFile(); }}
-                      className="mt-4 px-4 py-2 bg-slate-900 hover:bg-slate-800 rounded-lg text-xs text-slate-400 transition-colors border border-slate-800"
-                    >
-                      Remove File
-                    </button>
+                  <div className="animate-fade-in w-full">
+                     {uploadError ? (
+                        <div className="flex flex-col items-center">
+                            <AlertCircle className="w-8 h-8 text-red-500 mb-2" />
+                            <p className="text-red-400 font-medium mb-1">Upload Error</p>
+                            <p className="text-red-300/70 text-xs mb-3">{uploadError}</p>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); clearFile(); }}
+                              className="px-3 py-1.5 bg-slate-900 rounded-lg text-xs text-slate-300 border border-slate-700"
+                            >
+                              Try Again
+                            </button>
+                        </div>
+                     ) : (
+                        <>
+                            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle2 className="w-8 h-8 text-green-400" />
+                            </div>
+                            <p className="text-white font-medium mb-1 truncate max-w-[200px] mx-auto">{fileName}</p>
+                            <p className="text-green-400 text-sm">Resume Ready</p>
+                            <button 
+                            onClick={(e) => { e.stopPropagation(); clearFile(); }}
+                            className="mt-4 px-4 py-2 bg-slate-900 hover:bg-slate-800 rounded-lg text-xs text-slate-400 transition-colors border border-slate-800"
+                            >
+                            Remove File
+                            </button>
+                        </>
+                     )}
                   </div>
                 ) : (
                   <div className="group-hover:scale-105 transition-transform duration-300">
@@ -509,12 +557,12 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
 
             <button
               type="submit"
-              disabled={isProcessingFile}
+              disabled={isProcessingFile || !!uploadError}
               className={`w-full font-bold py-5 rounded-2xl transition-all transform hover:scale-[1.02] shadow-xl flex items-center justify-center space-x-3 group ${
                   isBlindMode 
                   ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-purple-500/20 text-white'
                   : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-cyan-500/20 text-white'
-              } ${isProcessingFile ? 'opacity-50 cursor-not-allowed' : ''}`}
+              } ${(isProcessingFile || !!uploadError) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <span className="text-lg">{isBlindMode ? 'Start Mystery Session' : (isDemoMode ? 'Start Demo Session' : 'Start Session')}</span>
               <PlayCircle className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
