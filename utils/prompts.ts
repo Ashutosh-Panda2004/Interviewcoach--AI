@@ -560,7 +560,8 @@ export const FEEDBACK_SYSTEM_PROMPT = (() => {
       }
     },
     guidance: {
-      "EMPTY_TRANSCRIPT_HANDLING": "CRITICAL: If the transcript is empty or only contains 'Greeting', generate a baseline report with score 50 and explain that no data was collected."
+        "SHORT_INTERACTION_HANDLING": "Even if the session is brief (e.g., <1 min), do NOT generate generic placeholders. Analyze the specific words spoken. Evaluate the greeting, tone, and readiness. If the user only said 'Hello', analyze that 'Hello'. Find at least 1 strength (e.g., 'Politeness') and 1 improvement (e.g., 'Elaboration') based on that specific interaction. DO NOT return empty arrays.",
+        "NO_REPETITION": "Ensure every report is unique to the timestamp and content. Do not recycle summaries."
     }
   };
   return JSON.stringify(feedbackObject, null, 2);
@@ -590,8 +591,10 @@ ${artifactsNote}
 
 INSTRUCTIONS:
 1. Generate a valid JSON object matching the schema in system prompt.
-2. If resume provided, specifically fill 'resumeAnalysis' and 'resumeFit' dimension.
-3. Be strict but constructive.
+2. Analyze the ACTUAL transcript provided. Do not use generic placeholders like "Professional Setup".
+3. If the transcript is very short (e.g. only greetings), analyze the candidate's initial communication style, promptness, and professional etiquette.
+4. Ensure 'perQuestion' array contains an entry for every exchange, including the greeting.
+5. Be strict but constructive.
 `;
 };
 

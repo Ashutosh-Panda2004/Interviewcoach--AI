@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState, useRef } from 'react';
 import { ComprehensiveAnalysisReport, TranscriptionItem } from '../types';
 import { GoogleGenAI } from '@google/genai';
@@ -46,52 +47,23 @@ const sanitizeReport = (raw: any): ComprehensiveAnalysisReport => {
         resumeFit: safeRaw.dimensions?.resumeFit ? { ...safeRaw.dimensions.resumeFit, score: ensureScore(safeRaw.dimensions.resumeFit.score) } : { ...defaultDim, score: ensureScore(null) },
     };
 
-    // Populate Lists (Strengths/Improvements) - STRICT CHECK
-    // Filter out invalid or empty items to force fallback usage if necessary
-    let safeStrengths = Array.isArray(safeRaw.strengths) ? safeRaw.strengths.filter((s: any) => s && s.point && s.point.trim().length > 0) : [];
-    if (safeStrengths.length === 0) {
-        safeStrengths = [
-            { point: "Professional Setup", detail: "Initiated the interview session successfully.", stability: 85, evidence: [] },
-            { point: "Punctuality", detail: "Connected to the session on time.", stability: 90, evidence: [] }
-        ];
-    }
-
-    let safeImprovements = Array.isArray(safeRaw.improvements) ? safeRaw.improvements.filter((i: any) => i && i.title && i.title.trim().length > 0) : [];
-    if (safeImprovements.length === 0) {
-        safeImprovements = [
-            { title: "Session Depth", description: "Extend the session length to allow for deeper analysis.", severity: "Medium", trend: "stagnant", dimension: "Engagement" },
-            { title: "Verbal Elaboration", description: "Provide longer responses to demonstrate technical depth.", severity: "Low", trend: "stagnant", dimension: "Communication" }
-        ];
-    }
+    // Populate Lists - USE AI DATA DIRECTLY, NO HARDCODED FALLBACKS
+    let safeStrengths = Array.isArray(safeRaw.strengths) ? safeRaw.strengths.filter((s: any) => s && s.point) : [];
+    let safeImprovements = Array.isArray(safeRaw.improvements) ? safeRaw.improvements.filter((i: any) => i && i.title) : [];
     
     // Ensure summary text exists
-    let summaryText = safeRaw.summary;
-    if (!summaryText || summaryText.length < 10) {
-        summaryText = "The interview session was concluded. While the interaction was brief, this report provides a baseline assessment of your setup. To get a more detailed analysis, please conduct a longer session covering technical topics.";
-    }
+    let summaryText = safeRaw.summary || "No summary generated for this session.";
 
-    // Populate Question Analysis - STRICT CHECK
-    // If empty, inject a "Session Initialization" card so the UI is never blank
+    // Populate Question Analysis - USE AI DATA DIRECTLY
     let safePerQuestion = Array.isArray(safeRaw.perQuestion) ? safeRaw.perQuestion : [];
-    if (safePerQuestion.length === 0) {
-        safePerQuestion = [{
-            questionText: "Session Initialization / Greeting",
-            answerText: "Candidate joined the session.",
-            performanceScore: ensureScore(safeRaw.composite?.score),
-            evaluation: "Good",
-            feedback: "The candidate successfully established a connection. Proceed to technical questions in the next session for a full evaluation.",
-            suggestedAction: "Prepare a brief professional introduction.",
-            improvedSampleAnswer: "Hi, I'm ready to begin the interview for the Software Engineer role."
-        }];
-    }
-
+    
     return {
         meta: safeRaw.meta || {},
         composite: {
             score: ensureScore(safeRaw.composite?.score),
             stars: safeRaw.composite?.stars || 3,
             confidence: safeRaw.composite?.confidence || 0.1,
-            explanation: safeRaw.composite?.explanation || "Baseline assessment generated due to limited session data."
+            explanation: safeRaw.composite?.explanation || "Assessment complete."
         },
         dimensions: dims,
         strengths: safeStrengths,
@@ -123,11 +95,11 @@ const Feedback: React.FC<FeedbackProps> = ({ transcripts, onRestart, resumeConte
                 .join('\n');
         } else {
              isTranscriptEmpty = true;
-             conversationText = "(No conversation detected. The user connected but did not speak. Please generate a 'Silent Session' report.)";
+             conversationText = "(No spoken conversation detected. The candidate connected but did not speak.)";
         }
             
-        // If transcript is empty, explicitly instruct AI to generate placeholder data
-        const artifactsNote = isTranscriptEmpty ? "SYSTEM NOTE: Transcript is empty. Generate a valid report with score 50. Treat 'Greeting' as the first question." : "";
+        // Removed the "generate a baseline report" instruction.
+        const artifactsNote = isTranscriptEmpty ? "SYSTEM NOTE: Transcript is extremely brief. Analyze whatever interaction occurred (even if silence/connection only)." : "";
 
         const userPrompt = constructFeedbackUserPrompt(interviewSettings, resumeContext, conversationText, artifactsNote);
 
@@ -153,8 +125,7 @@ const Feedback: React.FC<FeedbackProps> = ({ transcripts, onRestart, resumeConte
                 rawResult = JSON.parse(cleanText);
             } catch (e) {
                 console.error("JSON Parse Error", e);
-                // Fallback for bad JSON
-                rawResult = { summary: "Error parsing AI response. Generating baseline report." };
+                rawResult = { summary: "Error parsing AI analysis." };
             }
             
             // SANITIZE DATA before using it
@@ -185,14 +156,13 @@ const Feedback: React.FC<FeedbackProps> = ({ transcripts, onRestart, resumeConte
                 }
             }
         } else {
-             // Handle empty response case with a safe object
              const empty = sanitizeReport({ summary: "No response from AI service." });
              setAnalysis(empty);
         }
 
       } catch (e) {
         console.error("Feedback generation failed", e);
-        setAnalysis(sanitizeReport({ summary: "Analysis failed due to a network or API error. Displaying baseline metrics." }));
+        setAnalysis(sanitizeReport({ summary: "Analysis failed due to a network or API error." }));
       } finally {
         setLoading(false);
       }
@@ -319,28 +289,36 @@ const Feedback: React.FC<FeedbackProps> = ({ transcripts, onRestart, resumeConte
                         <h4 className="text-sm font-bold text-green-400 uppercase tracking-wide mb-3 flex items-center">
                             <CheckCircle2 className="w-4 h-4 mr-2" /> Key Strengths
                         </h4>
-                        <ul className="space-y-2">
-                            {(analysis.strengths || []).slice(0, 3).map((str, i) => (
-                                <li key={i} className="text-sm text-slate-300 flex items-start">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 mr-2 shrink-0" />
-                                    {str.point}
-                                </li>
-                            ))}
-                        </ul>
+                        {(analysis.strengths && analysis.strengths.length > 0) ? (
+                            <ul className="space-y-2">
+                                {analysis.strengths.slice(0, 3).map((str, i) => (
+                                    <li key={i} className="text-sm text-slate-300 flex items-start">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 mr-2 shrink-0" />
+                                        {str.point}
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-slate-500 italic">No specific strengths detected in this session.</p>
+                        )}
                     </div>
                     <div className="w-full h-px bg-slate-800" />
                     <div>
                         <h4 className="text-sm font-bold text-amber-400 uppercase tracking-wide mb-3 flex items-center">
                             <AlertTriangle className="w-4 h-4 mr-2" /> Areas for Growth
                         </h4>
-                        <ul className="space-y-2">
-                            {(analysis.improvements || []).slice(0, 3).map((imp, i) => (
-                                <li key={i} className="text-sm text-slate-300 flex items-start">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 mr-2 shrink-0" />
-                                    {imp.title}
-                                </li>
-                            ))}
-                        </ul>
+                         {(analysis.improvements && analysis.improvements.length > 0) ? (
+                            <ul className="space-y-2">
+                                {analysis.improvements.slice(0, 3).map((imp, i) => (
+                                    <li key={i} className="text-sm text-slate-300 flex items-start">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 mr-2 shrink-0" />
+                                        {imp.title}
+                                    </li>
+                                ))}
+                            </ul>
+                         ) : (
+                            <p className="text-sm text-slate-500 italic">No specific improvements detected in this session.</p>
+                         )}
                     </div>
                 </div>
             </div>
@@ -368,7 +346,8 @@ const Feedback: React.FC<FeedbackProps> = ({ transcripts, onRestart, resumeConte
             <div className="space-y-4">
                 <h3 className="text-xl font-bold text-white px-2">Question Analysis</h3>
                 
-                {(analysis.perQuestion || []).map((q, i) => (
+                {(analysis.perQuestion && analysis.perQuestion.length > 0) ? (
+                    analysis.perQuestion.map((q, i) => (
                     <div key={i} className="rounded-2xl border bg-slate-900 border-slate-800 p-6">
                         <div className="flex justify-between items-start mb-3">
                             <div className="flex items-center space-x-3">
@@ -405,7 +384,12 @@ const Feedback: React.FC<FeedbackProps> = ({ transcripts, onRestart, resumeConte
                             )}
                         </div>
                     </div>
-                ))}
+                ))
+               ) : (
+                   <div className="text-center py-10 bg-slate-900 rounded-3xl border border-slate-800">
+                       <p className="text-slate-500">No questions analyzed in this session.</p>
+                   </div>
+               )}
             </div>
         </div>
       </div>
