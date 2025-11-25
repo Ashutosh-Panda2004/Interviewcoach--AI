@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { InterviewSettings, InterviewType, InterviewerPersonality } from '../types';
-import { PlayCircle, Briefcase, UploadCloud, FileText, CheckCircle2, Clock, Gauge, Sparkles, UserCog, Swords, Dna, Settings2, Loader2, Presentation, AlertCircle, Code2 } from 'lucide-react';
+import { PlayCircle, Briefcase, UploadCloud, FileText, CheckCircle2, Clock, Gauge, Sparkles, UserCog, Swords, Dna, Settings2, Loader2, Presentation, AlertCircle, Code2, AlertTriangle } from 'lucide-react';
 // @ts-ignore
 import * as pdfjsLibModule from 'pdfjs-dist';
 
@@ -19,6 +19,13 @@ interface SetupProps {
   onStart: (settings: InterviewSettings) => void;
   initialSettings?: Partial<InterviewSettings> | null;
 }
+
+const TECHNICAL_KEYWORDS = [
+    'software', 'developer', 'engineer', 'architect', 'programmer', 
+    'coder', 'data', 'scientist', 'ai', 'ml', 'frontend', 'backend', 
+    'full stack', 'web', 'ios', 'android', 'devops', 'sre', 'tech', 
+    'quant', 'embedded', 'firmware', 'security', 'cyber', 'network'
+];
 
 const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
   // Required Fields (Always Visible)
@@ -42,6 +49,12 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Derived State for Role Compatibility
+  const isLikelyTechnical = React.useMemo(() => {
+      const lowerRole = role.toLowerCase();
+      return TECHNICAL_KEYWORDS.some(kw => lowerRole.includes(kw));
+  }, [role]);
+
   // Apply initial settings if provided (e.g., from Dashboard)
   useEffect(() => {
     if (initialSettings) {
@@ -61,6 +74,14 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
     }
   }, [initialSettings]);
 
+  // Safety Check: If role changes to non-technical, warn user about Coding Mode
+  useEffect(() => {
+      if (!isLikelyTechnical && isCodingIntensive) {
+          // Optional: Auto-disable or just let the warning UI handle it.
+          // For better UX, we just let the UI show the warning rather than forcing a state change that might annoy the user.
+      }
+  }, [role, isLikelyTechnical, isCodingIntensive]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -68,6 +89,18 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
     let finalPersonality = personality;
     let finalDifficulty = difficulty;
     let finalDuration = duration;
+    
+    // SAFETY OVERRIDE: If role is totally non-technical, force disable coding intensive
+    // unless the user specifically wrote something confusing.
+    let finalIsCodingIntensive = isCodingIntensive;
+    if (!isLikelyTechnical && isCodingIntensive) {
+         const confirm = window.confirm(
+             `You have selected "Coding Intensive Mode" for the role of "${role}", which appears to be non-technical.\n\nDo you want to proceed with coding questions, or switch to standard verbal questions?`
+         );
+         if (!confirm) {
+             finalIsCodingIntensive = false;
+         }
+    }
 
     // BLIND MODE LOGIC: Randomize settings
     if (isBlindMode) {
@@ -95,7 +128,7 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
         personality: finalPersonality,
         isBlindMode,
         isDemoMode, // Pass to types/prompts
-        isCodingIntensive // Pass to types/prompts
+        isCodingIntensive: finalIsCodingIntensive // Pass to types/prompts
     });
   };
 
@@ -272,6 +305,11 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
                     placeholder="e.g. Product Manager, Senior Developer..."
                     required
                   />
+                  {!isLikelyTechnical && role.length > 3 && (
+                      <p className="text-xs text-amber-500/80 flex items-center ml-1">
+                          Note: "{role}" may be non-technical. Some coding features might be disabled.
+                      </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -558,26 +596,34 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
             </div>
 
             {/* NEW: Coding Intensive Toggle (Visible in Both Modes) */}
-            <div 
-                className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                    isCodingIntensive 
-                    ? 'bg-blue-900/20 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
-                    : 'bg-slate-950 border-slate-800 hover:bg-slate-900'
-                }`}
-                onClick={() => setIsCodingIntensive(!isCodingIntensive)}
-            >
-                <div className="flex items-center">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 transition-colors ${isCodingIntensive ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800 text-slate-500'}`}>
-                        <Code2 className="w-5 h-5" />
+            <div>
+                <div 
+                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                        isCodingIntensive 
+                        ? (isLikelyTechnical ? 'bg-blue-900/20 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-amber-900/20 border-amber-500/50')
+                        : 'bg-slate-950 border-slate-800 hover:bg-slate-900'
+                    }`}
+                    onClick={() => setIsCodingIntensive(!isCodingIntensive)}
+                >
+                    <div className="flex items-center">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 transition-colors ${isCodingIntensive ? (isLikelyTechnical ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400') : 'bg-slate-800 text-slate-500'}`}>
+                            <Code2 className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className={`font-bold text-sm ${isCodingIntensive ? (isLikelyTechnical ? 'text-blue-400' : 'text-amber-400') : 'text-slate-300'}`}>Coding Intensive Mode</p>
+                            <p className="text-xs text-slate-500">More frequent & complex coding problems.</p>
+                        </div>
                     </div>
-                    <div>
-                        <p className={`font-bold text-sm ${isCodingIntensive ? 'text-blue-400' : 'text-slate-300'}`}>Coding Intensive Mode</p>
-                        <p className="text-xs text-slate-500">More frequent & complex coding problems.</p>
+                    <div className={`w-10 h-6 rounded-full p-1 transition-all duration-300 ${isCodingIntensive ? (isLikelyTechnical ? 'bg-blue-500' : 'bg-amber-600') : 'bg-slate-700'}`}>
+                        <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-all duration-300 ${isCodingIntensive ? 'translate-x-4' : 'translate-x-0'}`} />
                     </div>
                 </div>
-                <div className={`w-10 h-6 rounded-full p-1 transition-all duration-300 ${isCodingIntensive ? 'bg-blue-500' : 'bg-slate-700'}`}>
-                    <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-all duration-300 ${isCodingIntensive ? 'translate-x-4' : 'translate-x-0'}`} />
-                </div>
+                {isCodingIntensive && !isLikelyTechnical && (
+                    <div className="mt-2 text-xs text-amber-400 bg-amber-900/20 p-2 rounded border border-amber-500/20 flex items-start">
+                        <AlertTriangle className="w-3 h-3 mr-1.5 mt-0.5 shrink-0" />
+                        <span>Warning: Your role "{role}" doesn't seem technical. This mode might be inappropriate.</span>
+                    </div>
+                )}
             </div>
 
             <button

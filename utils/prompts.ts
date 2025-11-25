@@ -41,6 +41,11 @@ const sanitize = (s?: string): string => {
 
 const nowIso = () => new Date().toISOString();
 
+// Check if role is technical for safety overrides
+const isTechnicalRole = (role: string = '') => {
+    return /developer|engineer|data|programmer|coder|software|architect|ai|ml|tech|quant|devops|sre|security/i.test(role);
+};
+
 // -----------------------------------------------------------------------------
 // II. BUILDERS - create structured objects (TOON + JSON) for prompts
 // -----------------------------------------------------------------------------
@@ -61,6 +66,9 @@ const buildIdentity = (role: string, language: string) => {
   } else if (role && /sales|marketing/i.test(role)) {
     displayRole = "VP of Sales & GTM";
     domainExpertise = "Go-to-Market, Enterprise Sales, Negotiation";
+  } else if (role && /hr|human|recruiter/i.test(role)) {
+    displayRole = "Head of Talent";
+    domainExpertise = "HR Strategy, People Ops, Behavioral Interviews";
   }
 
   return {
@@ -86,13 +94,31 @@ const buildIdentity = (role: string, language: string) => {
   };
 };
 
-const buildToon = (durationMinutes: number | undefined, focusArea?: string, hasResume: boolean = false, isCodingIntensive: boolean = false) => {
+const buildToon = (
+    durationMinutes: number | undefined, 
+    focusArea: string | undefined, 
+    hasResume: boolean = false, 
+    isCodingIntensive: boolean = false,
+    role: string = ''
+) => {
   const duration = typeof durationMinutes === 'number' ? durationMinutes : 20;
+  
+  // SAFETY CHECK: If coding intensive is on but role is non-technical
+  const safetyOverride = isCodingIntensive && !isTechnicalRole(role);
   
   // Schedule Logic
   let phases: string[] = [];
 
-  if (isCodingIntensive) {
+  if (safetyOverride) {
+      // OVERRIDE SCHEDULE: LOGIC PUZZLES INSTEAD OF CODE
+      phases = [
+          `Greeting & Quick Intro (1m)`,
+          `Transition to ANALYTICAL/LOGIC Challenge IMMEDIATELY (e.g., Fermi problem, Market Sizing, Logic Puzzle)`,
+          `Deep Dive into Analytical Reasoning (No Code)`,
+          `Role-Specific Scenario (Behavioral/Strategy)`,
+          `Wrap-up`
+      ];
+  } else if (isCodingIntensive) {
       // CODING INTENSIVE SCHEDULE
       phases = [
           `Greeting & Quick Intro (1m) - SKIP CHIT CHAT`,
@@ -125,15 +151,19 @@ const buildToon = (durationMinutes: number | undefined, focusArea?: string, hasR
       ];
   }
 
-  const primaryTask = isCodingIntensive 
-      ? "Conduct a rigorous, coding-heavy technical interview." 
-      : "Conduct a realistic, psychologically-attuned mock interview.";
+  const primaryTask = safetyOverride
+      ? "Conduct a rigorous, ANALYTICAL and LOGIC-heavy interview (Safety Override Active: Role is non-technical, so DO NOT use Code Editor)."
+      : (isCodingIntensive 
+          ? "Conduct a rigorous, coding-heavy technical interview." 
+          : "Conduct a realistic, psychologically-attuned mock interview.");
 
-  const secondaryTask = isCodingIntensive
-      ? "Push the user to open the code editor within the first 3 minutes. Demand high-quality, efficient code."
-      : (hasResume 
-          ? `CRITICAL: The user has uploaded a resume. You MUST read the content in <<<RESUME_CONTENT>>>. Your questions MUST be based on their actual experience.` 
-          : `Focus on: ${focusArea || 'role-relevant topics'}.`);
+  const secondaryTask = safetyOverride
+      ? "Push the user to solve complex logic puzzles or market sizing problems verbally. Test their critical thinking."
+      : (isCodingIntensive
+          ? "Push the user to open the code editor within the first 3 minutes. Demand high-quality, efficient code."
+          : (hasResume 
+              ? `CRITICAL: The user has uploaded a resume. You MUST read the content in <<<RESUME_CONTENT>>>. Your questions MUST be based on their actual experience.` 
+              : `Focus on: ${focusArea || 'role-relevant topics'}.`));
 
   return {
     TOON: {
@@ -372,11 +402,23 @@ export const constructInterviewSystemPrompt = (
   // Check for resume presence to drive logic
   const hasResume = !!(resumeText && resumeText.length > 50);
 
+  // Check safety override status for greeting logic
+  const role = settings.role || 'Software Engineer';
+  const isTechnical = isTechnicalRole(role);
+  const safetyOverride = settings.isCodingIntensive && !isTechnical;
+
   // Create all modules
-  const identity = buildIdentity(settings.role || 'Software Engineer', settings.language || 'en-US');
-  // Pass hasResume to buildToon to adjust phases
-  // Pass isCodingIntensive to buildToon to adjust schedule
-  const toon = buildToon(settings.duration || settings.durationMinutes || 20, settings.focusArea, hasResume, settings.isCodingIntensive);
+  const identity = buildIdentity(role, settings.language || 'en-US');
+  
+  // Pass role to buildToon for safety overrides
+  const toon = buildToon(
+      settings.duration || settings.durationMinutes || 20, 
+      settings.focusArea, 
+      hasResume, 
+      settings.isCodingIntensive, 
+      role // New Param
+  );
+  
   const behavior = buildBehavioralMatrix(settings);
   const context = buildContext(settings, resumeText);
   const safety = buildSafety();
@@ -402,6 +444,8 @@ export const constructInterviewSystemPrompt = (
   let startupInstruction = "";
   if (settings.isDemoMode) {
       startupInstruction = `DEMO MODE STARTUP: Skip standard greetings. Immediately generate a challenging, context-aware interview question for a ${settings.experienceLevel || 'Senior'} ${settings.role || 'Candidate'}. Do not say "Let's start". Just ask the question directly.`;
+  } else if (safetyOverride) {
+      startupInstruction = `SAFETY OVERRIDE STARTUP: The user requested "Coding Intensive" but the role "${role}" is NON-TECHNICAL. Do NOT start a coding session. Instead, say: "Hi, I'm ${AGENT_NAME}. Since this is a ${role} role, instead of coding, I'd like to test your analytical and logic skills." Then, ask a complex logic puzzle or market sizing question immediately.`;
   } else if (settings.isCodingIntensive) {
       startupInstruction = `CODING INTENSIVE STARTUP: Greeting must be very brief. Say: "Hi, I'm ${AGENT_NAME}. This is a Coding Intensive session, so we will jump straight into technical challenges. Please open the Code Editor now." Then, ask them if they are ready for the first problem.`;
   } else if (hasResume) {
@@ -432,7 +476,7 @@ export const constructInterviewSystemPrompt = (
         "If editor empty: request approach first.",
         "Log all hint usage and test runs with timestamps.",
         "STRICTLY SPEAK ENGLISH ONLY.",
-        "If the candidate provides a vague, high-level, or one-sentence answer (e.g., 'I worked on the backend'), do NOT accept it. You MUST immediately probe for specifics: 'What specific technologies?', 'How did you handle scaling?', etc. Do not move to the next question until you hear concrete technical nouns."
+        "If the candidate provides a vague, high-level, or one-sentence answer (e.g., 'I worked on the backend'), do NOT accept it. You MUST immediately probe for specifics: 'What specific technologies?', 'How did you handle scaling?', etc. Do not move to the next question until you have extracted concrete technical details."
       ]
     }
   };
