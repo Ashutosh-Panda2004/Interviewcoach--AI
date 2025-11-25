@@ -6,6 +6,8 @@ A voice-first interview preparation platform powered by Google Gemini's Multimod
 
 Stop practicing with generic interview questions. InterviewCoach AI creates realistic interview experiences by speaking naturally with you, understanding your background, and giving you detailed feedback on where you stand. It's like having a senior engineer mock interview you anytime you want.
 
+Built with modern web technologies and powered by Google's latest AI models, this platform brings the real interview experience to your screen with low-latency voice streaming, intelligent conversations, and data-driven insights to track your progress.
+
 ## Key Features
 
 **Real-Time Voice Interaction**
@@ -70,8 +72,8 @@ Stop practicing with generic interview questions. InterviewCoach AI creates real
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/interview-coach-ai.git
-cd interview-coach-ai
+git clone https://github.com/yourusername/InterviewCoach--AI.git
+cd InterviewCoach--AI
 
 # Install dependencies
 npm install
@@ -123,7 +125,7 @@ Open your browser and navigate to `http://localhost:3000`
 ## Project Structure
 
 ```
-interview-coach-ai/
+InterviewCoach--AI/
 │
 ├── components/
 │   ├── AudioVisualizer.tsx       # Canvas-based waveform visualization
@@ -176,4 +178,16 @@ interview-coach-ai/
 
 ## License
 
-MIT License - free and open-source. Use, modify, and share freel
+MIT License - free and open-source. Use, modify, and share freely.
+
+## Contributing
+
+We welcome contributions! Feel free to fork this repository, make improvements, and submit pull requests. Whether it's bug fixes, new features, or documentation improvements, your help is appreciated.
+
+## Support
+
+Encountering issues? Check the troubleshooting section above or open an issue on GitHub. We're here to help!
+
+---
+
+**Start practicing smarter interviews today. Your next interview shouldn't be your first.**
