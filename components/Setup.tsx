@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { InterviewSettings, InterviewType, InterviewerPersonality } from '../types';
-import { PlayCircle, Briefcase, UploadCloud, FileText, CheckCircle2, Clock, Gauge, Sparkles, UserCog, Swords, Dna, Settings2, Loader2, Presentation, AlertCircle } from 'lucide-react';
+import { PlayCircle, Briefcase, UploadCloud, FileText, CheckCircle2, Clock, Gauge, Sparkles, UserCog, Swords, Dna, Settings2, Loader2, Presentation, AlertCircle, Code2 } from 'lucide-react';
 // @ts-ignore
 import * as pdfjsLibModule from 'pdfjs-dist';
 
@@ -36,6 +36,7 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
   // UI State
   const [isBlindMode, setIsBlindMode] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false); // NEW: Demo Mode State
+  const [isCodingIntensive, setIsCodingIntensive] = useState(false); // NEW: Coding Intensive Mode
   const [fileName, setFileName] = useState<string | null>(null);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -93,7 +94,8 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
         interviewType: finalType, 
         personality: finalPersonality,
         isBlindMode,
-        isDemoMode // Pass to types/prompts
+        isDemoMode, // Pass to types/prompts
+        isCodingIntensive // Pass to types/prompts
     });
   };
 
@@ -553,6 +555,29 @@ const Setup: React.FC<SetupProps> = ({ onStart, initialSettings }) => {
                     className="w-full h-20 bg-transparent border-b border-slate-800 text-slate-400 text-xs focus:outline-none focus:border-cyan-500 transition-colors resize-none p-2"
                 />
               )}
+            </div>
+
+            {/* NEW: Coding Intensive Toggle (Visible in Both Modes) */}
+            <div 
+                className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                    isCodingIntensive 
+                    ? 'bg-blue-900/20 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
+                    : 'bg-slate-950 border-slate-800 hover:bg-slate-900'
+                }`}
+                onClick={() => setIsCodingIntensive(!isCodingIntensive)}
+            >
+                <div className="flex items-center">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 transition-colors ${isCodingIntensive ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800 text-slate-500'}`}>
+                        <Code2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <p className={`font-bold text-sm ${isCodingIntensive ? 'text-blue-400' : 'text-slate-300'}`}>Coding Intensive Mode</p>
+                        <p className="text-xs text-slate-500">More frequent & complex coding problems.</p>
+                    </div>
+                </div>
+                <div className={`w-10 h-6 rounded-full p-1 transition-all duration-300 ${isCodingIntensive ? 'bg-blue-500' : 'bg-slate-700'}`}>
+                    <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-all duration-300 ${isCodingIntensive ? 'translate-x-4' : 'translate-x-0'}`} />
+                </div>
             </div>
 
             <button

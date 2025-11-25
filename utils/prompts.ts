@@ -19,6 +19,7 @@ export type InterviewSettingsFull = InterviewSettings & {
   interviewType?: 'Actual Interview' | 'Practice Interview';
   personality?: 'Very Strict' | 'Calm & Polite' | 'Highly Helpful' | 'Friendly Conversational' | 'Neutral Professional';
   isDemoMode?: boolean;
+  isCodingIntensive?: boolean;
 };
 
 const AGENT_NAME = "Sarah";
@@ -85,33 +86,60 @@ const buildIdentity = (role: string, language: string) => {
   };
 };
 
-const buildToon = (durationMinutes: number | undefined, focusArea?: string, hasResume: boolean = false) => {
+const buildToon = (durationMinutes: number | undefined, focusArea?: string, hasResume: boolean = false, isCodingIntensive: boolean = false) => {
   const duration = typeof durationMinutes === 'number' ? durationMinutes : 20;
-  const introTime = duration <= 10 ? 1 : 2;
-  const deepDiveMinutes = Math.max( Math.round(duration * 0.55), 6 );
+  
+  // Schedule Logic
+  let phases: string[] = [];
 
-  // Adjust orchestration phases based on resume presence
-  const phases = hasResume ? [
-      `Greeting & Resume Verification (${introTime}m) - ACKNOWLEDGE RESUME IMMEDIATELY`,
-      `Resume Deep Dive (Projects & Experience) (${deepDiveMinutes}m) - PROBE SPECIFIC CLAIMS`,
-      `Technical validation based on resume claims`,
-      "Challenge / Coding / System Design phase",
-      "Wrap-up & candidate questions"
-  ] : [
-      `Greeting (${introTime}m)`,
-      `Experience & Resume Scan (Fast)`,
-      `Core Focus / Deep Dive (${deepDiveMinutes}m)`,
-      "Challenge / Coding / System Design phase",
-      "Wrap-up & candidate questions"
-  ];
+  if (isCodingIntensive) {
+      // CODING INTENSIVE SCHEDULE
+      phases = [
+          `Greeting & Quick Intro (1m) - SKIP CHIT CHAT`,
+          `Transition to Coding Challenge #1 IMMEDIATELY (Algo/Data Structure)`,
+          `Transition to Coding Challenge #2 (System Design or Advanced Algo) if time permits`,
+          `Brief technical discussion on solution trade-offs`,
+          `Wrap-up`
+      ];
+  } else if (hasResume) {
+      // RESUME FOCUSED SCHEDULE
+      const introTime = duration <= 10 ? 1 : 2;
+      const deepDiveMinutes = Math.max( Math.round(duration * 0.55), 6 );
+      phases = [
+          `Greeting & Resume Verification (${introTime}m) - ACKNOWLEDGE RESUME IMMEDIATELY`,
+          `Resume Deep Dive (Projects & Experience) (${deepDiveMinutes}m) - PROBE SPECIFIC CLAIMS`,
+          `Technical validation based on resume claims`,
+          "Challenge / Coding / System Design phase",
+          "Wrap-up & candidate questions"
+      ];
+  } else {
+      // STANDARD SCHEDULE
+      const introTime = duration <= 10 ? 1 : 2;
+      const deepDiveMinutes = Math.max( Math.round(duration * 0.55), 6 );
+      phases = [
+          `Greeting (${introTime}m)`,
+          `Experience & Resume Scan (Fast)`,
+          `Core Focus / Deep Dive (${deepDiveMinutes}m)`,
+          "Challenge / Coding / System Design phase",
+          "Wrap-up & candidate questions"
+      ];
+  }
+
+  const primaryTask = isCodingIntensive 
+      ? "Conduct a rigorous, coding-heavy technical interview." 
+      : "Conduct a realistic, psychologically-attuned mock interview.";
+
+  const secondaryTask = isCodingIntensive
+      ? "Push the user to open the code editor within the first 3 minutes. Demand high-quality, efficient code."
+      : (hasResume 
+          ? `CRITICAL: The user has uploaded a resume. You MUST read the content in <<<RESUME_CONTENT>>>. Your questions MUST be based on their actual experience.` 
+          : `Focus on: ${focusArea || 'role-relevant topics'}.`);
 
   return {
     TOON: {
       TASK: {
-        primary: "Conduct a realistic, psychologically-attuned mock interview.",
-        secondary: hasResume 
-            ? `CRITICAL: The user has uploaded a resume. You MUST read the content in <<<RESUME_CONTENT>>>. Your questions MUST be based on their actual experience.` 
-            : `Focus on: ${focusArea || 'role-relevant topics'}.`,
+        primary: primaryTask,
+        secondary: secondaryTask,
         tertiary: "Evaluate reasoning, communication, technical skill, and fit."
       },
       OUTPUT: {
@@ -337,7 +365,8 @@ export const constructInterviewSystemPrompt = (
   // Create all modules
   const identity = buildIdentity(settings.role || 'Software Engineer', settings.language || 'en-US');
   // Pass hasResume to buildToon to adjust phases
-  const toon = buildToon(settings.duration || settings.durationMinutes || 20, settings.focusArea, hasResume);
+  // Pass isCodingIntensive to buildToon to adjust schedule
+  const toon = buildToon(settings.duration || settings.durationMinutes || 20, settings.focusArea, hasResume, settings.isCodingIntensive);
   const behavior = buildBehavioralMatrix(settings);
   const context = buildContext(settings, resumeText);
   const safety = buildSafety();
@@ -360,10 +389,16 @@ export const constructInterviewSystemPrompt = (
   } : { DEMO_MODE: { active: false } };
 
   // Select Greeting based on Context
-  const standardGreeting = `You must start the session. Say: "Hi, I'm ${AGENT_NAME}. I see you're applying for the ${settings.role || 'Software Engineer'} role. Ready to begin?" (Customize this greeting based on Personality settings).`;
-  
-  // STRONGER INSTRUCTION: Force resume usage in the very first turn
-  const resumeGreeting = `You must start the session. Say: "Hi, I'm ${AGENT_NAME}. I've reviewed your resume." Then, IMMEDIATELY cite a specific project or role from the resume content (e.g., "I see you worked at...") and ask a relevant technical or behavioral question about it. Do NOT ask generic questions like "tell me about yourself".`;
+  let startupInstruction = "";
+  if (settings.isDemoMode) {
+      startupInstruction = `DEMO MODE STARTUP: Skip standard greetings. Immediately generate a challenging, context-aware interview question for a ${settings.experienceLevel || 'Senior'} ${settings.role || 'Candidate'}. Do not say "Let's start". Just ask the question directly.`;
+  } else if (settings.isCodingIntensive) {
+      startupInstruction = `CODING INTENSIVE STARTUP: Greeting must be very brief. Say: "Hi, I'm ${AGENT_NAME}. This is a Coding Intensive session, so we will jump straight into technical challenges. Please open the Code Editor now." Then, ask them if they are ready for the first problem.`;
+  } else if (hasResume) {
+      startupInstruction = `You must start the session. Say: "Hi, I'm ${AGENT_NAME}. I've reviewed your resume." Then, IMMEDIATELY cite a specific project or role from the resume content (e.g., "I see you worked at...") and ask a relevant technical or behavioral question about it.`;
+  } else {
+      startupInstruction = `You must start the session. Say: "Hi, I'm ${AGENT_NAME}. I see you're applying for the ${settings.role || 'Software Engineer'} role. Ready to begin?" (Customize this greeting based on Personality settings).`;
+  }
 
   // Assemble final system object
   const systemObject = {
@@ -380,9 +415,7 @@ export const constructInterviewSystemPrompt = (
       developerResumePath: DEVELOPER_RESUME_LOCAL_PATH
     },
     INSTRUCTIONS: {
-      mandatoryStartup: settings.isDemoMode 
-          ? `DEMO MODE STARTUP: Skip standard greetings. Immediately generate a challenging, context-aware interview question for a ${settings.experienceLevel || 'Senior'} ${settings.role || 'Candidate'}. Do not say "Let's start". Just ask the question directly to showcase dynamic generation.`
-          : hasResume ? resumeGreeting : standardGreeting,
+      mandatoryStartup: startupInstruction,
       hardRules: [
         "Ask ONE question at a time.",
         "Never hallucinate unseen code or resume facts.",
@@ -563,9 +596,14 @@ INSTRUCTIONS:
 };
 
 export const constructCodingProblemPrompt = (settings: InterviewSettingsFull, previousTitles: string[]) => {
+  const complexityClause = settings.isCodingIntensive
+      ? "Create a highly complex, multi-step problem that tests edge cases and optimization (Level: Hard/Expert). Avoid common LeetCode problems if possible."
+      : "Create a standard industry interview problem appropriate for the role.";
+
   return `
 Generate a single new CodingProblem JSON object for a ${settings.difficulty} level ${settings.role} interview.
 Focus Area: ${settings.focusArea}.
+Context: ${complexityClause}
 Previous Questions to Avoid: ${previousTitles.join(', ')}.
 
 Return ONLY valid JSON matching this interface:

@@ -25,6 +25,7 @@ export interface InterviewSettings {
   personality: InterviewerPersonality;
   isBlindMode?: boolean;
   isDemoMode?: boolean; // Added for Demo Mode
+  isCodingIntensive?: boolean; // NEW: Forces more coding questions
   // Optional fields for extended internal compatibility
   autoAdapt?: boolean;
   language?: string;
