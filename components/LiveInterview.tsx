@@ -6,7 +6,7 @@ import { createPCM16Blob, decodeAudioData, base64ToUint8Array, downsampleTo16k }
 import { constructInterviewSystemPrompt, constructCodingProblemPrompt } from '../utils/prompts';
 import AudioVisualizer from './AudioVisualizer';
 import CodeWorkspace from './CodeWorkspace';
-import { Mic, MicOff, PhoneOff, Clock, MessageSquare, RefreshCw, Sparkles, Radio, Code2, Loader2, Play } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, Clock, MessageSquare, RefreshCw, Sparkles, Radio, Code2, Loader2, Play, Pause, Power, Volume2, VolumeX } from 'lucide-react';
 
 interface LiveInterviewProps {
   settings: InterviewSettings;
@@ -83,10 +83,10 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const reconnectAttemptsRef = useRef(0);
   const isSessionConnectedRef = useRef(false);
+  const isSessionPausedRef = useRef(false); // Tracks "Soft Pause" state
   const isConnectingRef = useRef(false);
   const isMountedRef = useRef(true);
   const isMicMutedRef = useRef(false);
-  const isPausedIntentionalRef = useRef(false);
   const transcriptsRef = useRef<TranscriptionItem[]>([]);
   const currentInputTranscriptionRef = useRef('');
   const currentOutputTranscriptionRef = useRef('');
@@ -156,7 +156,7 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
 
   const triggerReconnect = useCallback(() => {
     if (!isMountedRef.current) return;
-    if (isPausedIntentionalRef.current) return;
+    if (isSessionPausedRef.current) return; // Don't reconnect if manually paused
     const attempts = reconnectAttemptsRef.current;
     if (attempts >= 8) {
         setStatus('error');
@@ -231,7 +231,7 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
                     reconnectAttemptsRef.current = 0;
                     isSessionConnectedRef.current = true;
                     isConnectingRef.current = false;
-                    isPausedIntentionalRef.current = false;
+                    isSessionPausedRef.current = false;
                     pendingUserTextRef.current = '';
 
                     // Silent Pulse to wake up the model immediately
@@ -245,9 +245,9 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
                     if (base64Audio) {
                         try {
                             const audioData = base64ToUint8Array(base64Audio);
-                            // Ensure output context is running
-                            if (outCtx.state === 'suspended') {
-                                try { await outCtx.resume(); setIsAudioContextSuspended(false); } catch {}
+                            // Only force resume if NOT intentionally paused
+                            if (outCtx.state === 'suspended' && !isSessionPausedRef.current && !isAudioContextSuspended) {
+                                try { await outCtx.resume(); } catch {}
                             }
                             
                             const audioBuffer = await decodeAudioData(audioData, outCtx, 24000, 1);
@@ -259,6 +259,10 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
                             } else {
                                 source.connect(outCtx.destination);
                             }
+                            
+                            // Even if paused, we schedule the audio. It will "wait" in the timeline 
+                            // because ctx.currentTime freezes when suspended. 
+                            // This ensures seamless resume (no skipped words).
                             const currentTime = outCtx.currentTime;
                             const startTime = Math.max(nextStartTimeRef.current, currentTime);
                             source.start(startTime);
@@ -297,11 +301,17 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
                 },
                 onclose: (event) => {
                     if (!isMountedRef.current) return;
-                    if (isPausedIntentionalRef.current) return;
                     console.log("Session Closed:", event.code);
                     isSessionConnectedRef.current = false;
                     isConnectingRef.current = false;
                     sessionPromiseRef.current = null;
+                    
+                    // If manually paused, we don't treat this as an error. 
+                    // We just let the socket stay dead until user hits "Resume".
+                    if (isSessionPausedRef.current) {
+                        return;
+                    }
+
                     if (event.reason && (event.reason.includes("Invalid argument") || event.reason.includes("Permission denied"))) {
                         setStatus('error');
                         setError(`Connection failed: ${event.reason}. Please check API permissions.`);
@@ -388,9 +398,8 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
                     
                     let inputData = e.data as Float32Array;
                     
-                    // HEARTBEAT LOGIC: If muted, send silence instead of nothing.
-                    // This prevents the WebSocket from closing due to inactivity.
-                    if (isMicMutedRef.current) {
+                    // LOGIC: Send silence if Muted OR Paused (Heartbeat to keep socket alive)
+                    if (isMicMutedRef.current || isSessionPausedRef.current) {
                         inputData = new Float32Array(inputData.length).fill(0);
                     }
                     
@@ -404,8 +413,6 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
                 };
             } catch (workletError) {
                 console.error("Worklet failed, fallback needed?", workletError);
-                // Fallback could be ScriptProcessor if AudioWorklet fails, 
-                // but Worklet is supported in all modern browsers required for this app.
             }
 
             connectToGemini();
@@ -424,15 +431,30 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
 
   // --- Handlers ---
   const handlePause = async () => {
-      isPausedIntentionalRef.current = true;
+      isSessionPausedRef.current = true;
       setStatus('paused');
-      await disconnectSession();
+      // Soft Pause: Suspend output context immediately (stops playback instantly)
+      // but keep socket open sending silence (via worklet logic)
+      if (outputContextRef.current?.state === 'running') {
+          await outputContextRef.current.suspend();
+      }
   };
 
-  const handleResume = () => {
-      isPausedIntentionalRef.current = false;
-      setStatus('reconnecting');
-      connectToGemini();
+  const handleResume = async () => {
+      isSessionPausedRef.current = false;
+      
+      // Resume playback immediately
+      if (outputContextRef.current?.state === 'suspended') {
+          await outputContextRef.current.resume();
+      }
+
+      // Check if socket died while we were paused (e.g. timeout)
+      if (!isSessionConnectedRef.current) {
+          setStatus('reconnecting');
+          connectToGemini();
+      } else {
+          setStatus('connected');
+      }
   };
 
   const handleEndSession = () => {
@@ -445,7 +467,7 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
   };
 
   const handleStartReset = async () => {
-      isPausedIntentionalRef.current = true; // Prevent auto-reconnect during cleanup
+      isSessionPausedRef.current = true; // Prevent auto-reconnect during cleanup
       await disconnectSession();
       setTranscripts([]);
       setRealtimeTranscript(null);
@@ -454,7 +476,7 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
       pendingUserTextRef.current = '';
       // Small delay to ensure socket closes
       setTimeout(() => {
-          isPausedIntentionalRef.current = false;
+          isSessionPausedRef.current = false;
           setStatus('connecting');
           connectToGemini();
       }, 500);
@@ -632,45 +654,79 @@ const LiveInterview: React.FC<LiveInterviewProps> = ({ settings, onEnd }) => {
             </div>
 
             {/* Self View (Moved in Coding Mode) */}
-            <div className={`absolute transition-all duration-500 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-2xl z-20 ${activeMode === 'CODING' ? 'bottom-24 left-4 w-32 h-24' : 'bottom-24 right-8 w-48 h-32'}`}>
-                <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+            <div className={`absolute transition-all duration-500 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-2xl z-20 ${activeMode === 'CODING' ? 'bottom-28 left-4 w-32 h-24' : 'bottom-32 right-8 w-48 h-32'}`}>
+                <div className="w-full h-full bg-slate-900 flex items-center justify-center relative">
                     <div className={`w-full h-full ${isMicMuted || status === 'paused' ? 'opacity-20' : 'opacity-100'}`}>
                          <AudioVisualizer analyser={inputAnalyserState} isActive={!isMicMuted && status === 'connected'} mode="bar" color="#94a3b8" />
                     </div>
-                    {(isMicMuted || status === 'paused') && (
-                        <div className="absolute inset-0 flex items-center justify-center"><MicOff className="w-8 h-8 text-red-500" /></div>
+                    {isMicMuted && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+                            <MicOff className="w-6 h-6 text-red-500" />
+                        </div>
+                    )}
+                    {status === 'paused' && !isMicMuted && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+                             <Pause className="w-6 h-6 text-yellow-500" />
+                        </div>
                     )}
                 </div>
             </div>
 
-             {/* Controls (Floating in Coding Mode) */}
-             <div className={`flex items-center justify-center space-x-4 z-30 ${activeMode === 'CODING' ? 'absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900/90 p-2 rounded-full border border-slate-700' : 'absolute bottom-0 w-full h-20 bg-slate-900 border-t border-slate-800'}`}>
-                 {status === 'paused' ? (
-                    <button onClick={handleResume} className="p-3 rounded-full bg-green-600 hover:bg-green-500 text-white transition-all shadow-lg shadow-green-900/50">
-                         <Play className="w-5 h-5 fill-current" />
+            {/* UNIFIED FLOATING CONTROL DOCK */}
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
+                <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 p-2 rounded-2xl shadow-2xl flex items-center space-x-2 pointer-events-auto transform transition-all hover:scale-105 duration-200">
+                    
+                    {/* Toggle Mute */}
+                    <button 
+                        onClick={() => setIsMicMuted(!isMicMuted)} 
+                        className={`p-4 rounded-xl transition-all duration-200 flex items-center justify-center group relative ${
+                            isMicMuted 
+                            ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' 
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                        }`}
+                        title={isMicMuted ? "Unmute Microphone" : "Mute Microphone"}
+                    >
+                        {isMicMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                        {!isMicMuted && status === 'connected' && (
+                            <span className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                        )}
                     </button>
-                 ) : (
-                    <button onClick={handlePause} className="p-3 rounded-full bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/30 transition-all">
-                        <div className="w-4 h-4 border-l-2 border-r-2 border-current" />
-                    </button>
-                 )}
 
-                <button onClick={() => setIsMicMuted(!isMicMuted)} className={`p-3 rounded-full transition-all ${isMicMuted ? 'bg-red-500/20 text-red-500' : 'bg-slate-800 text-white'}`}>
-                    {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                </button>
-                <button onClick={handleEndSession} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full font-semibold flex items-center text-sm">
-                    <PhoneOff className="w-4 h-4 mr-2" /> End
-                </button>
+                    {/* Play / Pause Toggle */}
+                    <button 
+                        onClick={status === 'paused' ? handleResume : handlePause}
+                        className={`p-4 rounded-xl transition-all duration-200 flex items-center justify-center ${
+                            status === 'paused'
+                            ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/50'
+                            : 'bg-slate-800 hover:bg-slate-700 text-yellow-400'
+                        }`}
+                        title={status === 'paused' ? "Resume Session" : "Pause Session"}
+                    >
+                         {status === 'paused' ? <Play className="w-6 h-6 fill-current" /> : <Pause className="w-6 h-6 fill-current" />}
+                    </button>
+
+                    {/* End Session */}
+                    <button 
+                        onClick={handleEndSession}
+                        className="p-4 rounded-xl bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 transition-all duration-200 flex items-center justify-center border-l border-slate-700 ml-2"
+                        title="End Interview"
+                    >
+                        <Power className="w-6 h-6" />
+                    </button>
+                </div>
             </div>
 
             {/* Pause Overlay */}
             {status === 'paused' && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
-                    <div className="text-center p-8 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl">
-                        <h3 className="text-2xl font-bold text-white mb-2">Session Paused</h3>
-                        <p className="text-slate-400 mb-6">Microphone deactivated. Resume when ready.</p>
-                        <button onClick={handleResume} className="px-8 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-cyan-900/50 transition-all transform hover:scale-105">
-                            Resume Interview
+                <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/60 backdrop-blur-[2px] animate-fade-in">
+                    <div className="text-center p-8 rounded-2xl bg-slate-900/90 border border-slate-700 shadow-2xl transform scale-105">
+                        <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                            <Pause className="w-8 h-8 text-yellow-500 fill-current" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-white mb-1">Session Paused</h3>
+                        <p className="text-slate-400 mb-6 text-sm">Microphone and audio output are suspended.</p>
+                        <button onClick={handleResume} className="px-8 py-3 bg-white text-slate-900 hover:bg-slate-200 rounded-xl font-bold text-lg shadow-xl transition-all transform hover:scale-105 flex items-center mx-auto">
+                            <Play className="w-5 h-5 mr-2 fill-current" /> Resume
                         </button>
                     </div>
                 </div>
