@@ -176,6 +176,16 @@ InterviewCoach--AI/
 - Reduce browser tabs to free up resources
 - Check Google Cloud Console for quota information
 
+**429 Resource Exhausted and 404 Not Found**
+The error logs (429 Resource Exhausted and 404 Not Found) indicate two problems occurring with the model gemini-2.0-flash-exp:
+
+Rate Limiting (429): You are hitting the usage limits for the free tier of the API. This experimental model often has lower quotas than the standard models.
+Model Availability (404): The model gemini-2.0-flash-exp is an experimental version that may have been deprecated, renamed, or is not available in your specific API region.
+
+How to fix it (Manually):
+You need to open components/Feedback.tsx and components/LiveInterview.tsx and find the line model: 'gemini-2.0-flash-exp'. Change it to the latest stable model name, such as 'gemini-2.0-flash'or 'gemini-1.5-flash'. These stable models have significantly higher rate limits and reliability.
+
+
 ## License
 
 MIT License - free and open-source. Use, modify, and share freely.
