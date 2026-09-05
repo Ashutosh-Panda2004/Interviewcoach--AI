@@ -1,0 +1,67 @@
+[
+  {
+    "id": "generic_student",
+    "name": "General Campus Placement",
+    "region": "India",
+    "rounds": ["Aptitude", "Coding/Technical", "HR"],
+    "tone": "clear, supportive, campus-placement oriented",
+    "focusAreas": ["fundamentals", "communication", "projects", "aptitude reasoning"],
+    "sampleQuestions": [
+      "Tell me about a project where you solved a real problem.",
+      "Explain one data structure you used and why.",
+      "How would you approach a new technology under a deadline?"
+    ]
+  },
+  {
+    "id": "tcs",
+    "name": "TCS / NQT Style",
+    "region": "India",
+    "rounds": ["Aptitude", "Coding", "Technical Interview", "HR"],
+    "tone": "structured, fundamentals-first, service-company realistic",
+    "focusAreas": ["CS fundamentals", "basic coding", "SQL", "projects", "communication"],
+    "sampleQuestions": [
+      "Explain OOP pillars with a project example.",
+      "Write a simple approach to reverse a string or check a palindrome.",
+      "Why do you want to join a service-based company?"
+    ]
+  },
+  {
+    "id": "infosys",
+    "name": "Infosys Style",
+    "region": "India",
+    "rounds": ["Aptitude", "Technical", "HR"],
+    "tone": "calm, fundamentals-focused, communication-aware",
+    "focusAreas": ["logical reasoning", "programming basics", "DBMS", "resume projects"],
+    "sampleQuestions": [
+      "Describe normalization and why it matters.",
+      "What is your strongest programming language and why?",
+      "Walk me through your final-year project architecture."
+    ]
+  },
+  {
+    "id": "google",
+    "name": "Google SWE Style",
+    "region": "Global",
+    "rounds": ["Coding", "System Design", "Behavioral"],
+    "tone": "precise, collaborative, high technical depth",
+    "focusAreas": ["algorithms", "complexity", "system design tradeoffs", "clarity"],
+    "sampleQuestions": [
+      "Explain the time and space complexity of your approach.",
+      "How would you scale this service to 10x traffic?",
+      "Tell me about a time you handled ambiguity."
+    ]
+  },
+  {
+    "id": "amazon",
+    "name": "Amazon SDE Style",
+    "region": "Global",
+    "rounds": ["Coding", "Leadership Principles", "System Design"],
+    "tone": "ownership-oriented, evidence-seeking, direct",
+    "focusAreas": ["coding", "ownership", "customer obsession", "tradeoffs"],
+    "sampleQuestions": [
+      "Tell me about a time you took ownership of a difficult task.",
+      "What tradeoff did you make in a technical project?",
+      "How would you design a notification system?"
+    ]
+  }
+]
