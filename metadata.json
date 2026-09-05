@@ -1,0 +1,10 @@
+{
+  "name": "InterviewCoach",
+  "description": "A private, open-source interview rehearsal studio with live voice practice, validated feedback, coding, and system design.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
