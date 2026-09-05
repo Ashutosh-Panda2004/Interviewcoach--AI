@@ -1,0 +1,66 @@
+[
+  {
+    "id": "freeform",
+    "title": "Freeform — I'll describe my own system",
+    "promptText": "Ask the candidate what system they would like to design, then interview them on it. Adapt to their chosen domain.",
+    "suggestedComponents": [],
+    "difficulty": "Medium",
+    "topics": ["scalability", "api_design"]
+  },
+  {
+    "id": "url_shortener",
+    "title": "Design a URL Shortener",
+    "promptText": "Design a URL shortening service like bit.ly. Consider hashing/encoding of short keys, read-heavy traffic, redirect latency, and analytics.",
+    "suggestedComponents": ["client", "load_balancer", "api_gateway", "web_server", "cache", "nosql_database", "cdn"],
+    "difficulty": "Easy",
+    "topics": ["scalability", "caching", "databases", "networking", "api_design"]
+  },
+  {
+    "id": "rate_limiter",
+    "title": "Design a Rate Limiter",
+    "promptText": "Design a distributed rate limiter. Discuss algorithms (token bucket, sliding window), where it lives, and how state is shared across nodes.",
+    "suggestedComponents": ["client", "api_gateway", "rate_limiter", "cache", "load_balancer"],
+    "difficulty": "Medium",
+    "topics": ["scalability", "caching", "security", "api_design", "consistency"]
+  },
+  {
+    "id": "chat_app",
+    "title": "Design a Chat Application (like WhatsApp)",
+    "promptText": "Design a real-time chat system. Consider message delivery guarantees, presence, fan-out, persistence, and connection management at scale.",
+    "suggestedComponents": ["mobile_app", "load_balancer", "api_gateway", "microservice", "pub_sub", "nosql_database", "cache", "object_storage"],
+    "difficulty": "Hard",
+    "topics": ["messaging", "databases", "scalability", "consistency", "api_design"]
+  },
+  {
+    "id": "news_feed",
+    "title": "Design a News Feed (like Twitter/Instagram)",
+    "promptText": "Design a social news feed. Discuss fan-out on write vs read, ranking, caching hot content, and handling celebrity users.",
+    "suggestedComponents": ["client", "load_balancer", "api_gateway", "microservice", "cache", "nosql_database", "message_queue", "object_storage", "cdn"],
+    "difficulty": "Hard",
+    "topics": ["scalability", "caching", "messaging", "databases", "networking"]
+  },
+  {
+    "id": "ride_sharing",
+    "title": "Design a Ride-Sharing Dispatch System",
+    "promptText": "Design the dispatch system for a ride-sharing app. Consider geospatial indexing, matching drivers to riders, real-time location updates, and surge pricing.",
+    "suggestedComponents": ["mobile_app", "load_balancer", "api_gateway", "microservice", "cache", "nosql_database", "pub_sub", "worker"],
+    "difficulty": "Hard",
+    "topics": ["scalability", "messaging", "databases", "consistency", "api_design"]
+  },
+  {
+    "id": "file_storage",
+    "title": "Design a File Storage Service (like Dropbox)",
+    "promptText": "Design a file storage & sync service. Consider chunking, deduplication, metadata, conflict resolution, and sync across devices.",
+    "suggestedComponents": ["client", "mobile_app", "load_balancer", "api_gateway", "microservice", "object_storage", "sql_database", "message_queue", "cdn"],
+    "difficulty": "Medium",
+    "topics": ["databases", "consistency", "scalability", "networking", "api_design"]
+  },
+  {
+    "id": "notification_system",
+    "title": "Design a Notification System",
+    "promptText": "Design a multi-channel notification system (push, email, SMS). Consider fan-out, delivery retries, rate limiting per user, and template management.",
+    "suggestedComponents": ["api_gateway", "microservice", "message_queue", "pub_sub", "worker", "third_party_api", "nosql_database", "rate_limiter"],
+    "difficulty": "Medium",
+    "topics": ["messaging", "scalability", "security", "api_design", "databases"]
+  }
+]

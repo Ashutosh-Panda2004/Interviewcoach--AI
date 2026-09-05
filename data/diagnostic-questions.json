@@ -1,0 +1,123 @@
+[
+  {
+    "id": "cache_tradeoff",
+    "type": "mcq",
+    "topic": "caching",
+    "prompt": "What is the main tradeoff of adding a cache in front of a database?",
+    "options": [
+      "It always makes writes faster with no downside",
+      "It can reduce read latency and database load, but introduces invalidation and consistency complexity",
+      "It removes the need for a database",
+      "It guarantees strongly consistent reads"
+    ],
+    "correctOption": 1
+  },
+  {
+    "id": "queue_use_case",
+    "type": "mcq",
+    "topic": "messaging",
+    "prompt": "Which workload is usually a strong fit for a message queue?",
+    "options": [
+      "Synchronous login password validation",
+      "Background email delivery with retries",
+      "Every user profile read",
+      "Static asset serving from edge locations"
+    ],
+    "correctOption": 1
+  },
+  {
+    "id": "lb_purpose",
+    "type": "mcq",
+    "topic": "scalability",
+    "prompt": "Why place a load balancer before a pool of application servers?",
+    "options": [
+      "To distribute traffic and support horizontal scaling/failover",
+      "To permanently store user data",
+      "To replace authentication",
+      "To remove all network latency"
+    ],
+    "correctOption": 0
+  },
+  {
+    "id": "cdn_fit",
+    "type": "mcq",
+    "topic": "networking",
+    "prompt": "A CDN most directly helps with which concern?",
+    "options": [
+      "Low-latency delivery of cacheable content near users",
+      "Relational joins across normalized tables",
+      "Encrypting passwords before storage",
+      "Distributed transaction consensus"
+    ],
+    "correctOption": 0
+  },
+  {
+    "id": "cap_tradeoff",
+    "type": "mcq",
+    "topic": "consistency",
+    "prompt": "Under a network partition, CAP theorem says a distributed system must choose between:",
+    "options": [
+      "CPU and memory",
+      "Consistency and availability",
+      "SQL and NoSQL",
+      "Caching and sharding"
+    ],
+    "correctOption": 1
+  },
+  {
+    "id": "api_idempotency",
+    "type": "mcq",
+    "topic": "api_design",
+    "prompt": "Why is idempotency important for APIs that may be retried?",
+    "options": [
+      "It makes every request anonymous",
+      "It ensures repeated identical requests do not accidentally duplicate side effects",
+      "It removes the need for validation",
+      "It guarantees zero downtime"
+    ],
+    "correctOption": 1
+  },
+  {
+    "id": "rate_limit_security",
+    "type": "mcq",
+    "topic": "security",
+    "prompt": "Which design element helps reduce abuse from a single client or token?",
+    "options": [
+      "Rate limiting",
+      "A larger primary database",
+      "A worker queue only",
+      "Denormalized JSON"
+    ],
+    "correctOption": 0
+  },
+  {
+    "id": "database_sharding",
+    "type": "freetext",
+    "topic": "databases",
+    "prompt": "Briefly describe how you might shard a database that has grown too large for one instance."
+  },
+  {
+    "id": "cache_invalidation",
+    "type": "freetext",
+    "topic": "caching",
+    "prompt": "How would you think about invalidating cached data after a user updates it?"
+  },
+  {
+    "id": "async_order_flow",
+    "type": "freetext",
+    "topic": "messaging",
+    "prompt": "Name one reason you might process part of an order or notification workflow asynchronously."
+  },
+  {
+    "id": "auth_boundary",
+    "type": "freetext",
+    "topic": "security",
+    "prompt": "Where would you place authentication/authorization checks in an API-based system, and why?"
+  },
+  {
+    "id": "read_heavy_scale",
+    "type": "freetext",
+    "topic": "scalability",
+    "prompt": "A read-heavy service suddenly gets 10x traffic. What are two changes you would consider first?"
+  }
+]

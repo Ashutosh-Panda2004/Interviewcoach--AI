@@ -1,0 +1,102 @@
+[
+  {
+    "id": "sd_primer",
+    "title": "System Design Primer",
+    "source": "donnemartin/system-design-primer",
+    "url": "https://github.com/donnemartin/system-design-primer",
+    "format": "repo",
+    "topics": ["scalability", "databases", "caching", "messaging", "networking", "consistency", "api_design"],
+    "difficulty": "beginner",
+    "estimatedMinutes": 60
+  },
+  {
+    "id": "redis_caching_patterns",
+    "title": "Caching Patterns",
+    "source": "Redis Docs",
+    "url": "https://redis.io/glossary/cache-invalidation/",
+    "format": "article",
+    "topics": ["caching", "consistency"],
+    "difficulty": "beginner",
+    "estimatedMinutes": 12
+  },
+  {
+    "id": "cloudflare_cdn",
+    "title": "What Is a CDN?",
+    "source": "Cloudflare Learning Center",
+    "url": "https://www.cloudflare.com/learning/cdn/what-is-a-cdn/",
+    "format": "article",
+    "topics": ["networking", "scalability"],
+    "difficulty": "beginner",
+    "estimatedMinutes": 10
+  },
+  {
+    "id": "aws_queue_intro",
+    "title": "Message Queues and Pub/Sub Basics",
+    "source": "AWS Architecture Center",
+    "url": "https://aws.amazon.com/message-queue/",
+    "format": "article",
+    "topics": ["messaging", "scalability"],
+    "difficulty": "beginner",
+    "estimatedMinutes": 12
+  },
+  {
+    "id": "postgres_partitioning",
+    "title": "PostgreSQL Table Partitioning",
+    "source": "PostgreSQL Documentation",
+    "url": "https://www.postgresql.org/docs/current/ddl-partitioning.html",
+    "format": "article",
+    "topics": ["databases", "scalability"],
+    "difficulty": "intermediate",
+    "estimatedMinutes": 25
+  },
+  {
+    "id": "stripe_idempotency",
+    "title": "Idempotent Requests",
+    "source": "Stripe Docs",
+    "url": "https://docs.stripe.com/api/idempotent_requests",
+    "format": "article",
+    "topics": ["api_design", "consistency"],
+    "difficulty": "beginner",
+    "estimatedMinutes": 8
+  },
+  {
+    "id": "owasp_api_top_10",
+    "title": "OWASP API Security Top 10",
+    "source": "OWASP",
+    "url": "https://owasp.org/API-Security/editions/2023/en/0x00-header/",
+    "format": "article",
+    "topics": ["security", "api_design"],
+    "difficulty": "intermediate",
+    "estimatedMinutes": 30
+  },
+  {
+    "id": "kleppmann_consistency",
+    "title": "Distributed Systems Safety Research Notes",
+    "source": "Martin Kleppmann",
+    "url": "https://martin.kleppmann.com/",
+    "format": "article",
+    "topics": ["consistency", "databases"],
+    "difficulty": "advanced",
+    "estimatedMinutes": 30
+  },
+  {
+    "id": "google_sre_load_balancing",
+    "title": "Load Balancing at the Frontend",
+    "source": "Google SRE Book",
+    "url": "https://sre.google/sre-book/load-balancing-frontend/",
+    "format": "article",
+    "topics": ["scalability", "networking"],
+    "difficulty": "advanced",
+    "estimatedMinutes": 35
+  },
+  {
+    "id": "rest_api_design",
+    "title": "REST API Tutorial: Resource Naming",
+    "source": "restfulapi.net",
+    "url": "https://restfulapi.net/resource-naming/",
+    "format": "article",
+    "topics": ["api_design"],
+    "difficulty": "beginner",
+    "estimatedMinutes": 12
+  }
+]
