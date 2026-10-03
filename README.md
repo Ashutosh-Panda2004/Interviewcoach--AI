@@ -2,6 +2,19 @@
 
 InterviewCoach is a private, open-source interview rehearsal studio built with React, TypeScript, Express, and the Google Gemini Live API. It combines voice interviews, validated feedback, resume-aware sessions, JavaScript coding exercises, and a complete system-design practice arena.
 
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Session setup](assets/selection_page_1.png) | ![Focus areas and session format](assets/selection_page_2.png) |
+| Compose the room — role, resume context, and session configuration | Focus areas, company tracks, JD paste, and session format |
+| ![Blind mode](assets/blindMode_1.png) | ![Hardware check](assets/InterviewPage_1.png) |
+| Blind mode — interview type, personality, and difficulty stay hidden | Hardware check — microphone preflight before the session starts |
+| ![Performance Hub](assets/dashboard_1.png) | ![Score by difficulty](assets/dashboard_2.png) |
+| Performance Hub — score, growth, stability, and skill profile | Score by session difficulty and skill evolution over time |
+| ![Resume Intelligence](assets/dashboard_3_resumeAnalysis.png) | ![Strengths and frequency](assets/dashboard_4.png) |
+| Resume Intelligence — annotated resume with topic confidence | Top strengths, priority improvements, and interview frequency |
+
 ## Features
 
 - Real-time voice interviews with interruption, transcription, pause/resume, and reconnect handling
