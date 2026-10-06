@@ -1,8 +1,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { HistoryItem, InterviewSettings } from '../types';
-import { getInterviewHistory, getInterviewHistoryAsync, addHistoryItems, removeMockItems, clearHistory } from '../utils/storage';
-import { generateMockHistory } from '../utils/mockData';
+import { getInterviewHistory, getInterviewHistoryAsync, clearHistory } from '../utils/storage';
 import { getStreakStats } from '../utils/feedbackEnhancements';
 import { 
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -12,7 +11,7 @@ import {
 import { 
     Activity, TrendingUp, CheckCircle2, AlertTriangle, 
     Zap, FileText, PlayCircle, BookOpen, Info, Minus, TrendingDown, 
-    Target, Database, Terminal, BarChart2, Trash2, Eye, Gauge, ArrowUpRight, Loader2, Download
+    Target, Terminal, BarChart2, Trash2, Eye, Gauge, ArrowUpRight, Download
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -22,10 +21,7 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ onStartSession }) => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [loading, setLoading] = useState(false);
     const streakStats = getStreakStats();
-
-    const isDevMode = localStorage.getItem('interview_coach_dev_mode') === 'true';
 
   useEffect(() => {
     // 1. Instant load from local cache
@@ -39,21 +35,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartSession }) => {
   }, [refreshTrigger]);
 
   // --- HANDLERS ---
-  
-  const handleAddMockData = async () => {
-    setLoading(true);
-    const mockItems = generateMockHistory();
-    const updated = await addHistoryItems(mockItems);
-    setHistory(updated);
-    setLoading(false);
-  };
-
-  const handleRemoveMockData = async () => {
-    setLoading(true);
-    const updated = await removeMockItems();
-    setHistory(updated);
-    setLoading(false);
-  };
 
     const handleExportHistory = () => {
         const file = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
@@ -205,26 +186,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartSession }) => {
                             </button>
                         </>
                     )}
-                {isDevMode && (
-                    <div className="flex space-x-3 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
-              <button 
-                  onClick={handleAddMockData} 
-                  disabled={loading}
-                  className="px-3 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded text-xs font-medium flex items-center transition-colors disabled:opacity-50 disabled:pointer-events-none"
-              >
-                  {loading ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Database className="w-3 h-3 mr-2" />} 
-                  {loading ? 'Loading...' : 'Add Mock Data'}
-              </button>
-              <button 
-                  onClick={handleRemoveMockData} 
-                  disabled={loading}
-                  className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 rounded text-xs font-medium flex items-center transition-colors disabled:opacity-50 disabled:pointer-events-none"
-              >
-                  {loading ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Trash2 className="w-3 h-3 mr-2" />} 
-                  {loading ? 'Clearing...' : 'Remove Mock'}
-              </button>
-          </div>
-        )}
                 </div>
       </div>
 
@@ -237,7 +198,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartSession }) => {
               <h2 className="text-3xl font-bold text-white mb-3">No Session Data Yet</h2>
               <p className="text-slate-400 max-w-md mx-auto mb-8">
                   Complete an interview session to visualize your performance trends.
-                  {isDevMode && " You can also use the buttons above to add mock data for testing."}
               </p>
           </div>
       )}

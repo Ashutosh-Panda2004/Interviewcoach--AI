@@ -160,7 +160,6 @@ export interface HistoryItem {
   score: number;
   duration: number;
   feedback: ComprehensiveAnalysisReport;
-  isMock?: boolean; 
 }
 
 // --- CODING WORKSPACE TYPES ---

@@ -50,8 +50,7 @@ export const saveInterviewResult = (report: ComprehensiveAnalysisReport) => {
       role: role,
       score: compositeScore, 
       duration: duration,
-      feedback: report,
-      isMock: false 
+      feedback: report
     };
 
     // Save to local cache
@@ -62,40 +61,6 @@ export const saveInterviewResult = (report: ComprehensiveAnalysisReport) => {
     console.error("Failed to save interview result", error);
     return null;
   }
-};
-
-// Add history items (including local development/demo items).
-export const addHistoryItems = async (items: HistoryItem[]): Promise<HistoryItem[]> => {
-    try {
-        const history = getInterviewHistory();
-        const realHistory = history.filter(item => item.isMock !== true);
-        const updatedHistory = [...items, ...realHistory];
-        
-        // Save locally
-        if (!writeHistory(updatedHistory)) return history;
-
-        return updatedHistory;
-    } catch (error) {
-        console.error("Failed to add history items", error);
-        return [];
-    }
-};
-
-// Remove mock items from local history.
-export const removeMockItems = async (): Promise<HistoryItem[]> => {
-    try {
-        const history = getInterviewHistory();
-        const mockItems = history.filter(item => item.isMock === true);
-        const realHistory = history.filter(item => item.isMock !== true);
-        
-        // Update local cache
-        if (!writeHistory(realHistory)) return history;
-
-        return realHistory;
-    } catch (error) {
-        console.error("Failed to remove mock items", error);
-        return [];
-    }
 };
 
 // Clear local history.
